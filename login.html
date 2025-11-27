@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="w-full max-w-md">
+        <div class="bg-white shadow-md rounded-lg px-8 py-10">
+            <div class="flex flex-col items-center">
+                <svg class="w-12 h-12 mb-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c-1.657 0-3 1.343-3 3s1.343 3 3 3 3-1.343 3-3-1.343-3-3-3zm0 0c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6z" />
+                </svg>
+                <h1 class="text-2xl font-bold text-gray-800">Sign in</h1>
+                <p class="mt-2 text-gray-600">to continue to Gemini</p>
+            </div>
+            <form class="mt-8 space-y-6">
+                <div class="rounded-md shadow-sm -space-y-px">
+                    <div>
+                        <label for="email-address" class="sr-only">Email address</label>
+                        <input id="email-address" name="email" type="email" autocomplete="email" required class="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm" placeholder="Email address">
+                    </div>
+                </div>
+
+                <div>
+                    <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                        Forgot email?
+                    </a>
+                </div>
+
+                <div class="mt-6">
+                    <p class="text-sm text-gray-600">Not your computer? Use a private browsing window to sign in. <a href="#" class="font-medium text-indigo-600 hover:text-indigo-500">Learn more</a></p>
+                </div>
+
+                <div class="flex items-center justify-between mt-6">
+                    <a href="#" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                        Create account
+                    </a>
+                    <button type="submit" class="group relative flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Next
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

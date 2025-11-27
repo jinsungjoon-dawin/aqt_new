@@ -1,0 +1,151 @@
+{
+    "dash":{
+        "testTitle": "현 단계 테스트 :",
+        "date" : "수행 일자:",
+        "dataTitle": "현 단계 데이터 이행 :"
+    },
+    "test":{
+        "leftTitle": "차수",
+        "leftDate" : "Tobe",
+        "date" : "수행 일자:",
+        "title": "테스트"
+    },
+    "testDetail":{
+        "leftTitle": "차수",
+        "leftDate" : "Tobe",
+        "date" : "수행 일자:",
+        "title": "테스트",
+        "excelTitles" : ["주제", "결과","서비스명", "테스트일시","시작시간","종료시간","수행시간"],
+        "excelFileName" : "_테스트결과.xlsx",
+        "search1" : "조회조건 상태:",
+        "tableHeader" : ["주제", "결과","서비스명", "테스트일시","시작시간","종료시간","수행시간"]         
+    },
+    "perform":{
+        "leftTitle": "차수",
+        "leftDate1" : "Asis",
+        "leftDate2" : "Tobe",
+        "date" : "수행 일자:",
+        "title": "테스트"
+    },
+    "performDetail":{
+        "leftTitle": "차수",
+        "leftDate1" : "Asis",
+        "leftDate2" : "Tobe",
+        "date" : "수행 일자:",
+        "title": "테스트",
+        "excelTitles" : ["주제", "결과", "서비스명", "테스트일시","시작시간","종료시간","수행시간","ASIS시작시간","ASIS종료시간","수행시간"],
+        "excelFileName" : "_테스트결과.xlsx",
+        "search1" : "조회조건 상태:",
+        "tableHeader" : ["주제", "결과", "서비스명", "테스트일시","시작시간","종료시간","수행시간","ASIS시작시간","ASIS종료시간","수행시간"]         
+    },
+    "loadData":{
+        "leftTitle": "차수",
+        "leftDate1" : "이관일자",
+        "leftMainTitle" : "데이터 이관 차수",
+        "mainTopTitle" : "데이터 이관 결과",
+        "totCnt" : "총 수량",
+        "cnt" : "수량",
+        "schemaTitle": "스키마 검증 결과",
+        "dataCheckTitle": "데이터 검증 결과",
+        "etc" : "특이사항",
+        "tableHeader": [
+                        ["구분", "DB 계정명", "Table 수량","Table 수량","Index 수량","Index 수량","Object 수량","Object 수량","Invalid Object 수량","Invalid Object 수량"]
+                       ,["구분", "DB 계정명", "As-Is"    ,"To-Be"     ,"As-Is", "To-Be"        , "As-Is", "To-Be"	  ,"As-Is", "To-Be"]
+                       ],
+        "bTableHeader": ["검증 SQL 수량", "SUM 값 비교 결과 불일치 수량"],
+        "schemaExcelHeader": ["구분", "DB 계정명", "As-Is Table 수량" ,"To-Be Table 수량" ,"As-Is Index 수량", "To-Be Index 수량" , "As-Is Object 수량", "To-Be Object 수량" ,"As-Is Invalid Object 수량", "To-Be Invalid Object 수량"]         
+        ,"btn":{"diff":"불일치 상세보기"}               
+    },
+    "loadDataDetail":{
+        "tableHeader": ["검증 SQL No",	"검증 SQL 명",	"As-Is SUM값",	"To-Be SUM값",	"SUM 값 비교결과"],
+        "totCnt" : "총 수량",
+        "dataCheckDiff": "데이터 검증 불일치 결과"
+                         
+    },
+    "pie":{
+        "pLabels" : ["목표달성", "미수행", "미달성"]
+       ,"tLabels" : ["성공", "미수행", "실패"]
+       ,"target"  : "대상: "
+       ,"cnt"     : "개"
+    },
+    "bar":{
+        "label1":"대상",
+        "label2":"이행",
+        "label3": "목표달성",
+        "label4": "성공",
+        "label5": "미달성",
+        "label6": "미수행",
+        "label7": "실패",
+        "label8": "Table", 
+        "label9": "불일치 건수",
+        "dataLabels1": ["Table", "Index", "Object", "Invalid Object"],
+        "dataLabels2": ["Table", "불일치 건수"],
+        
+        "title1": "주제별 진행 현황",
+        "title2": "DB 리소스 이행 결과"
+    },
+    "stacked":{
+        "label1":"대상",
+        "label2":"이행",
+        "label3": "목표달성",
+        "label4": "미달성",
+        "label5": "수행",
+        "label6": "미수행",
+        "label7": "실패",
+        "title1": "주제별 진행 현황"
+    },
+    "com":{
+
+        "nowDate": "현재일자:",
+        "paging":{
+            "noData":"조회된 데이터가 없습니다.",
+            "previous":"이전",
+            "next":"다음"
+        },
+        "btn":{
+            "detail":"상세보기",
+            "prePage": "이전보기",
+            "excelDown": "엑셀 다운로드",
+            "excelUpload": "엑셀 업로드",
+            "close" : "닫기",
+            "search": "조회",
+            "userAdd": "사용자 추가",
+            "save": "저장",
+            "delete": "삭제",
+            "selectdDelete": "선택삭제",
+            "cancel": "취소",
+            "targetCancel": "적용취소"
+        },
+        "sel":{
+                "status" : {"test" : [{"key" : "ALL", "value" : "전체"},
+                                    {"key" : "성공", "value" : "성공"},
+                                    {"key" : "실패", "value" : "실패"},
+                                    {"key" : "미수행", "value" : "미수행"}],
+                            "perform" :  [{"key" : "ALL", "value" : "전체"},
+                                            {"key" : "지연", "value" : "지연"},
+                                            {"key" : "향상", "value" : "향상"},
+                                            {"key" : "미수행", "value" : "미수행"}]        
+                    }
+               }
+    },
+    "user":{
+        "pageNm" : "사용자 관리",
+        "tableHeader" : [" ", "사용자ID", "Host","사용자명","Admin","접근 가능페이지","등록일"],
+        "selectData" :  [
+                        {"key" : "1", "value" : "사용자ID"},
+                        {"key" : "2", "value" : "Host"},
+                        {"key" : "3", "value" : "사용자명"},
+                        {"key" : "4", "value" : "권한"},
+                        {"key" : "5", "value" : "접근 가능페이지"}
+                        ] ,
+        "usrId" : "사용자ID ",
+        "host" : "host ",
+        "usrdesc" : "사용자명 ",
+        "check":"는 필수 항목입니다.",
+        "checkData" : "체크하신 항목이 없습니다.",
+        "deleteConfirm":"삭제를 하시겠습니까?",
+        "deleteSuccess":"삭제를 완료하였습니다.",
+        "saveConfirm" :"저장을 하시겠습니까?",
+        "saveSuccess" :"저장을 완료하였습니다."
+    }
+}

@@ -1,0 +1,22 @@
+** vite 프로젝트 구성
+npm init vite@latest
+cd 프로젝트폴더
+npm install 
+npm install mariadb
+"npm install -D tailwindcss postcss autoprefixer
+npx tailwindcss init -p"
+vscode 에서 PostCSS Language Support 설치
+  Intelli Sense 설치
+  jsdoc generator 설치
+  json helper 설치
+
+** chartjs 
+npm i svelte-chartjs chart.js
+npm install chartjs-plugin-datalabels --save
+버퍼사용시 추가
+npm install buffer
+엑셀업로드
+npm install xlsx
+다국어 (lable 텍스트 일괄관리)
+npm install svelte-i18n
+

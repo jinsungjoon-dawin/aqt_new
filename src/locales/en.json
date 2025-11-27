@@ -1,0 +1,66 @@
+{
+    "dash":{
+        "testTitle": "현단계 테스트 결과1:",
+        "date" : "수행 일자1:",
+        "dataTitle": "현단계 데이터 이행 결과1:"
+    },
+    "test":{
+        "leftTitle": "차수",
+        "leftDate" : "Tobe",
+        "date" : "수행 일자:",
+        "title": "테스트"
+    },
+    "testDetail":{
+        "leftTitle": "차수",
+        "leftDate" : "Tobe",
+        "date" : "수행 일자:",
+        "title": "테스트",
+        "excelTitles" : ["주재", "구분", "테스트일시","시작시간","종료시간","수행시간","ASIS시작시간","ASIS종료시간","소요시간"],
+        "excelFileName" : "_테스트결과.xlsx",
+        "search1" : "조회조건 상태:",
+        "selectData" : [{"key" : "ALL", "value" : "전체"},
+                        {"key" : "대상", "value" : "대상"},
+                        {"key" : "성공", "value" : "성공"},
+                        {"key" : "실패", "value" : "실패"},
+                        {"key" : "미수행", "value" : "미수행"}
+                        ]
+    },
+    "pie":{
+        "pLabels" : ["목표달성", "미수행", "미달성"]
+       ,"tLabels" : ["성공", "미수행", "실패"]
+       ,"target"  : "대상: "
+       ,"cnt"     : "개"
+    },
+    "bar":{
+        "label1":"대상",
+        "label2":"이행",
+        "label3": "목표달성",
+        "label4": "성공",
+        "label5": "미달성",
+        "label6": "미수행",
+        "label7": "실패",
+        "dataLabels1": ["Table", "Index", "Object", "Invalid Object"],
+        "dataLabels2": ["Table", "불일치 건수"],
+        "title1": "주제별 진행 현황",
+        "title2": "DB 리소스 이행 결과"
+    },
+    "stacked":{
+        "label1":"대상",
+        "label2":"이행",
+        "label3": "목표달성",
+        "label4": "미달성",
+        "label5": "수행",
+        "label6": "미수행",
+        "label7": "실패",
+        "title1": "주제별 진행 현황"
+    },
+    "com":{
+
+        "nowDate": "현재일자1:",
+        "paging":{
+            "noData":"조회된 데이터가 없습니다.",
+            "previous":"Previous",
+            "next":"Next"
+        }
+    }
+}
