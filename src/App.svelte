@@ -18,18 +18,19 @@
   import { onMount } from "svelte";
   import Parent from "./lib/Parent.svelte";
   import SshTerminal from "./lib/SshTerminal.svelte";
-  let cnm = DashBoard ;
+  let cnm = SshTerminal ;
   let pageNm = "모니터링 종합";
   let menuIdx = 0;
   let today = '';
 
-  let menus = [{pageNm:"홈",cnm:DashBoard},
-               {pageNm:"테스트",cnm:TestComposit},
-               {pageNm:"성능",cnm:PerformComposit},
-               {pageNm:"데이터",cnm:LoadDataVerifyResult},
-               {pageNm:"이행",cnm:TransformBoard},
-               {pageNm:"관리자",cnm:UserUploadManagement},
-               {pageNm:"도움말",cnm:HelpManagement},
+  let menus = [
+              //  {pageNm:"홈",cnm:DashBoard},
+              //  {pageNm:"테스트",cnm:TestComposit},
+              //  {pageNm:"성능",cnm:PerformComposit},
+              //  {pageNm:"데이터",cnm:LoadDataVerifyResult},
+              //  {pageNm:"이행",cnm:TransformBoard},
+              //  {pageNm:"관리자",cnm:UserUploadManagement},
+              //  {pageNm:"도움말",cnm:HelpManagement},
                {pageNm:"SSH 터미널",cnm:SshTerminal}
               //  ,{pageNm:"임시",cnm:Parent}
   ]
