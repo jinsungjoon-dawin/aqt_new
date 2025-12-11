@@ -4,10 +4,8 @@ import path from 'path';
 import { notFound, errorHandler } from './middle/errors.js';
 import { fileURLToPath } from "url";
 import logonchk from './cntr/logonchk.js';
-
-import executeCommand from './cntr/executeCommand.js';
-
-import tableManagetment from './cntr/tableManagement.js'
+import jobsManagement from './cntr/jobsManagement.js'
+import company from './cntr/company.js'
 
 
 const app = express();
@@ -35,9 +33,8 @@ app.get('/', (req, res) => {
 });
 
 app.use('/logonchk', logonchk);
-
-app.use('/execute-command', executeCommand);
-app.use('/tables', tableManagetment);
+app.use('/jobs', jobsManagement);
+app.use('/company', company);
 
 app.listen(port, '0.0.0.0', () => {
    console.log(`Server is up at port ${port}`);

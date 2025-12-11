@@ -1,6 +1,7 @@
 import mariadb from 'mariadb';
 import dbinfo from './dbinfo.js';
-const config = dbinfo.local;
+const config = dbinfo.local;//로컬에서
+// const config = dbinfo.dev;//서버에서
 
 const pool = mariadb.createPool({
       host: config.host,
