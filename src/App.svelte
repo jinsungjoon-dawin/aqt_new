@@ -7,6 +7,9 @@
   import JobDataManage from "./lib/JobDataManage.svelte";
   import Sample from "./lib/Sample.svelte";
   import Test from "./lib/Test.svelte";
+  import Tree from "./lib/Tree.svelte";
+  import TreeCRUD from "./lib/TreeCRUD.svelte";
+  import Job from "./lib/Job.svelte";
   import { isLogged, userid, t } from "./aqtstore";
   import { onMount } from "svelte";
   let cnm = Company;
@@ -15,14 +18,21 @@
   let today = "";
 
   let menus = [
-    //  {pageNm:"관리자",cnm:UserUploadManagement},
-    { pageNm: "고객사 관리", cnm: Company },
-    { pageNm: "공통항목 관리", cnm: CommonManage },
-    { pageNm: "공통항목 데이터 관리", cnm: CommonDataManage },
-    { pageNm: "업무 관리", cnm: JobManage },
-    { pageNm: "업무 데이터 관리", cnm: JobDataManage },
-    { pageNm: "샘플", cnm: Sample },
-    { pageNm: "테스트", cnm: Test },
+    {
+      pageNm: "기초정보",
+      subMenus: [
+        { pageNm: "고객사 관리", cnm: Company },
+        { pageNm: "공통항목 관리", cnm: CommonManage },
+        { pageNm: "공통항목 데이터 관리", cnm: CommonDataManage },
+        { pageNm: "업무 관리", cnm: JobManage },
+        { pageNm: "업무 데이터 관리", cnm: JobDataManage },
+        // { pageNm: "샘플", cnm: Sample },
+        // { pageNm: "테스트", cnm: Test },
+        // { pageNm: "트리 구조 확인", cnm: Tree },
+        // { pageNm: "트리 CRUD", cnm: TreeCRUD },
+        { pageNm: "Job Config", cnm: Job },
+      ],
+    },
   ];
 
   function getToDate() {
@@ -59,7 +69,7 @@
               <ul class="ml-10 flex items-baseline space-x-4">
                 {#each menus as item, idx}
                   <li class="py-1">
-                    {#if item.pageNm === "관리자"}
+                    {#if item.subMenus}
                       <div
                         class="group relative dropdown px-4 rounded-md px-3 py-2 text-sm font-medium text-gray-300"
                       >
@@ -68,67 +78,25 @@
                           menuIdx
                             ? 'text-white bg-gray-900'
                             : 'text-gray-300 hover:bg-gray-700 hover:text-white'}"
-                          >관리자</a
+                          href="#">{item.pageNm}</a
                         >
                         <div
-                          class="group-hover:block dropdown-menu absolute hidden h-auto"
+                          class="group-hover:block dropdown-menu absolute hidden h-auto z-50"
                         >
                           <ul class="top-0 w-48 bg-gray-900 shadow px-6 py-1">
-                            <li class="py-1">
-                              <a
-                                href="#"
-                                class="menu-item"
-                                on:click|preventDefault={(_) => {
-                                  cnm = UserUploadManagement;
-                                  pageNm = "사용자 관리";
-                                  menuIdx = idx;
-                                }}>사용자 관리</a
-                              >
-                            </li>
-                            <li class="py-1">
-                              <a
-                                href="#"
-                                class="menu-item"
-                                on:click|preventDefault={(_) => {
-                                  cnm = PerformUploadManagement;
-                                  pageNm = "성능 Data 관리";
-                                  menuIdx = idx;
-                                }}>성능 Data 관리</a
-                              >
-                            </li>
-                            <li class="py-1">
-                              <a
-                                href="#"
-                                class="menu-item"
-                                on:click|preventDefault={(_) => {
-                                  cnm = LoadDataUploadManagement;
-                                  pageNm = "Data 검증 관리";
-                                  menuIdx = idx;
-                                }}>Data 검증 관리</a
-                              >
-                            </li>
-                            <li class="py-1">
-                              <a
-                                href="#"
-                                class="menu-item"
-                                on:click|preventDefault={(_) => {
-                                  cnm = ScenarioUploadManagement;
-                                  pageNm = "시나리오 관리";
-                                  menuIdx = idx;
-                                }}>시나리오 관리</a
-                              >
-                            </li>
-                            <li class="py-1">
-                              <a
-                                href="#"
-                                class="menu-item"
-                                on:click|preventDefault={(_) => {
-                                  cnm = Company;
-                                  pageNm = "고객사 관리";
-                                  menuIdx = idx;
-                                }}>고객사 관리</a
-                              >
-                            </li>
+                            {#each item.subMenus as subItem}
+                              <li class="py-1">
+                                <a
+                                  href="#"
+                                  class="menu-item block text-gray-300 hover:text-white"
+                                  on:click|preventDefault={(_) => {
+                                    cnm = subItem.cnm;
+                                    pageNm = subItem.pageNm;
+                                    menuIdx = idx;
+                                  }}>{subItem.pageNm}</a
+                                >
+                              </li>
+                            {/each}
                           </ul>
                         </div>
                       </div>
