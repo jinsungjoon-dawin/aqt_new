@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- 설정 변수 ---
-PORT=5555
+PORT=5550
 NODE_APP="servers/server.js" # Node.js 앱의 실제 경로 및 파일명
 LOG_FILE="server.log"
 # ------------------

@@ -10,7 +10,7 @@ export const authApps = writable("");
 export const userid = writable("");
 export const appids = writable([]);
 export const rooturl = readable('http://localhost:5880'); //로컬
-// export const rooturl = readable('http://192.168.0.10:5555');//서버반영
+// export const rooturl = readable('http://192.168.0.10:5550');//서버반영
 export const intlMs = writable(0);
 export const t = readable(ko);
 export const getCheckPass = async (password) => {

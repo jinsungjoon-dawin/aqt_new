@@ -1,6 +1,7 @@
 <script>
     import { onMount } from "svelte";
     import { read, utils, writeFile } from "xlsx";
+    import { rooturl } from "../aqtstore";
 
     // 데이터 상태
     let projects = [];
@@ -17,20 +18,20 @@
     let filteredJobs = [];
     let filteredMessages = [];
 
-    // Mock Messages (실제 API 연동 시 교체 필요)
-    const mockMessages = [
-        { id: "MSG001", name: "CommHeader", projectId: "1", jobId: "1" },
-        { id: "MSG002", name: "UserData", projectId: "1", jobId: "1" },
-        { id: "MSG003", name: "ProductInfo", projectId: "1", jobId: "2" },
-    ];
-
     onMount(async () => {
         try {
-            const projectRes = await fetch("/api/jobs/project/list");
+            const projectRes = await fetch(`${$rooturl}/jobs/project/list`);
             projects = await projectRes.json();
 
-            const jobRes = await fetch("/api/jobs/job/list");
+            const jobRes = await fetch(`${$rooturl}/jobs/job/list`);
             jobs = await jobRes.json();
+
+            const msgRes = await fetch(`${$rooturl}/jobs/message/list`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}),
+            });
+            messages = await msgRes.json();
         } catch (error) {
             console.error("데이터 로딩 실패:", error);
         }
@@ -50,12 +51,12 @@
     // 업무 선택 -> 전문 목록 필터링
     $: {
         filteredMessages = selectedJob
-            ? mockMessages.filter((m) => m.jobId === selectedJob)
+            ? messages.filter((m) => m.jobId === selectedJob)
             : [];
         // 업무 변경 시 전문 초기화
         if (
             selectedMessageId &&
-            !filteredMessages.find((m) => m.id === selectedMessageId)
+            !filteredMessages.find((m) => m.messageId === selectedMessageId)
         ) {
             selectedMessageId = "";
         }
@@ -69,64 +70,42 @@
         }
 
         isLoading = true;
-        // Mock API Call
-        setTimeout(() => {
-            const result = generateMockData(selectedMessageId);
-            dataList = result.data;
-            dynamicColumns = result.columns;
+        try {
+            const res = await fetch(`${$rooturl}/jobs/data/list`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messageId: selectedMessageId }),
+            });
+            const data = await res.json();
+
+            // Clean/Transform data and infer columns
+            if (data.length > 0) {
+                const keys = new Set();
+                // Infer columns from all rows
+                data.forEach((row) => {
+                    if (row.dynamicData) {
+                        Object.keys(row.dynamicData).forEach((k) =>
+                            keys.add(k),
+                        );
+                    }
+                });
+                dynamicColumns = Array.from(keys);
+
+                // Map to internal format
+                dataList = data.map((d) => ({
+                    ...d,
+                    isChecked: false,
+                }));
+            } else {
+                dynamicColumns = [];
+                dataList = [];
+            }
+        } catch (error) {
+            console.error("데이터 조회 실패:", error);
+            dataList = [];
+        } finally {
             isLoading = false;
-        }, 500);
-    }
-
-    // 데이터 생성 (Mock)
-    function generateMockData(msgId) {
-        // 고정 데이터 (Fixed Columns에 들어갈 값들)
-        const commonData = {
-            projectId: selectedProject,
-            projectName:
-                projects.find((p) => p.id === selectedProject)?.name || "",
-            jobGroupId: "GRP_" + selectedJob,
-            jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
-            messageId: msgId,
-            messageName:
-                filteredMessages.find((m) => m.id === msgId)?.name || "",
-        };
-
-        const rows = [];
-        let columns = [];
-
-        if (msgId === "MSG001") {
-            columns = ["TrxDate", "TrxTime", "GlobalId", "Channel"];
-            for (let i = 0; i < 5; i++) {
-                rows.push({
-                    ...commonData,
-                    isChecked: false,
-                    status: "R",
-                    dynamicData: {
-                        TrxDate: "20241218",
-                        TrxTime: "12000" + i,
-                        GlobalId:
-                            "GID" + Math.random().toString(36).substr(2, 8),
-                        Channel: "WEB",
-                    },
-                });
-            }
-        } else {
-            columns = ["FieldA", "FieldB", "FieldC"];
-            for (let i = 0; i < 3; i++) {
-                rows.push({
-                    ...commonData,
-                    isChecked: false,
-                    status: "R",
-                    dynamicData: {
-                        FieldA: "Data-" + i,
-                        FieldB: Math.floor(Math.random() * 100),
-                        FieldC: "Test",
-                    },
-                });
-            }
         }
-        return { data: rows, columns };
     }
 
     // 추가
@@ -138,19 +117,22 @@
         if (dynamicColumns.length === 0) {
             // 컬럼 정보가 없으면 조회를 먼저 하도록 유도하거나 빈 컬럼으로 시작
             // 여기서는 임의로 컬럼이 없으면 'NewField' 하나 생성
-            dynamicColumns = ["NewField"];
+            dynamicColumns = ["Field1"];
         }
 
         const newRow = {
             projectId: selectedProject,
             projectName:
                 projects.find((p) => p.id === selectedProject)?.name || "",
-            jobGroupId: "GRP_" + selectedJob,
+            // jobGroupId: "GRP_" + selectedJob, // Should get from message or job metadata really
+            jobGroupId:
+                messages.find((m) => m.messageId === selectedMessageId)
+                    ?.jobGroupId || "",
             jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
             messageId: selectedMessageId,
             messageName:
-                filteredMessages.find((m) => m.id === selectedMessageId)
-                    ?.name || "",
+                filteredMessages.find((m) => m.messageId === selectedMessageId)
+                    ?.messageNameKr || "",
             isChecked: true,
             status: "N",
             dynamicData: {},
@@ -164,7 +146,7 @@
     }
 
     // 삭제
-    function handleDelete() {
+    async function handleDelete() {
         const checked = dataList.filter((d) => d.isChecked);
         if (checked.length === 0) {
             alert("삭제할 항목을 선택해주세요.");
@@ -172,30 +154,66 @@
         }
 
         if (confirm(`${checked.length}건을 삭제하시겠습니까?`)) {
-            // N -> 즉시 제거, R -> D
+            // N -> 즉시 제거, R/U -> API Call
             const toRemove = new Set(checked.filter((d) => d.status === "N"));
-            const toSoftDelete = checked.filter((d) => d.status !== "N");
+            const toDelete = checked.filter((d) => d.status !== "N");
 
-            dataList = dataList.filter((d) => !toRemove.has(d));
-            toSoftDelete.forEach((d) => {
-                d.status = "D";
-                d.isChecked = false;
-            });
-            dataList = [...dataList];
+            try {
+                if (toDelete.length > 0) {
+                    await fetch(`${$rooturl}/jobs/data/delete`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(toDelete),
+                    });
+                }
+
+                // Client-side update
+                dataList = dataList.filter(
+                    (d) => !toRemove.has(d) && !toDelete.includes(d),
+                );
+                alert("삭제되었습니다.");
+            } catch (error) {
+                console.error("삭제 실패:", error);
+                alert("삭제 중 오류가 발생했습니다.");
+            }
         }
     }
 
     // 저장
-    function handleSave() {
+    async function handleSave() {
         const target = dataList.filter(
-            (d) => d.isChecked || d.status === "N" || d.status === "D",
+            (d) => d.isChecked || d.status === "N" || d.status === "U",
         );
-        if (target.length === 0) {
+        // Only save N or U items? Or checking means explicit save intent?
+        // Usually Save Action saves all dirty ('N', 'U') items or checked items.
+        // Let's filter by N or U for optimization, but user might check R and expect save? (Not in this logic)
+        // Let's stick to: Save items that are NEW or UPDATED.
+
+        const dirtyItems = dataList.filter(
+            (d) => d.status === "N" || d.status === "U" || d.isChecked,
+        );
+        // If the user checks an item, let's try to save it just in case.
+
+        if (dirtyItems.length === 0) {
             alert("저장할 변경사항이 없습니다.");
             return;
         }
-        console.log("Saving...", target);
-        alert(`${target.length}건을 저장했습니다. (콘솔 확인)`);
+
+        try {
+            const res = await fetch(`${$rooturl}/jobs/data/save`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dirtyItems),
+            });
+            const result = await res.json();
+            alert(`${result.count}건을 저장했습니다.`);
+
+            // Reload to get fresh state
+            handleSearch();
+        } catch (error) {
+            console.error("저장 실패:", error);
+            alert("저장 중 오류가 발생했습니다.");
+        }
     }
 
     // 전체 선택

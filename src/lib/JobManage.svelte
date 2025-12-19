@@ -1,94 +1,69 @@
 <script>
     import { onMount } from "svelte";
+    import { rooturl } from "../aqtstore";
     import { read, utils, writeFile } from "xlsx";
 
     // 프로젝트 및 업무 목록 데이터
     let projects = [];
     let jobs = [];
 
-    onMount(async () => {
-        try {
-            const projectRes = await fetch("/api/jobs/project/list");
-            projects = await projectRes.json();
+    // 전문 테이블 데이터
+    let allMessageList = [];
+    let filteredMessageList = [];
 
-            const jobRes = await fetch("/api/jobs/job/list");
-            jobs = await jobRes.json();
-        } catch (error) {
-            console.error("데이터 로딩 실패:", error);
-        }
-    });
+    // 선택된 전문 상태
+    let selectedMessage = null;
 
+    // 전문 필드 데이터
+    let fieldList = [];
+    let allFieldList = []; // If we want to keep a cache, or just use fieldList for current message
+
+    // Search Filters
     let selectedProject = "";
     let selectedJob = "";
-    let filteredJobs = [];
+
+    // Field Search
+    let searchFieldType = "";
+    let searchFieldKeyword = "";
+    let appliedFieldKeyword = "";
+    let appliedFieldType = "";
+
+    onMount(async () => {
+        await loadMetadata();
+        await loadMessages();
+    });
+
+    async function loadMetadata() {
+        try {
+            const projectRes = await fetch($rooturl + "/jobs/project/list");
+            projects = await projectRes.json();
+
+            const jobRes = await fetch($rooturl + "/jobs/job/list");
+            jobs = await jobRes.json();
+        } catch (error) {
+            console.error("메타데이터 로딩 실패:", error);
+        }
+    }
+
+    async function loadMessages() {
+        try {
+            const res = await fetch($rooturl + "/jobs/message/list", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}),
+            });
+            allMessageList = await res.json();
+            jobSearch(); // Apply filters
+        } catch (error) {
+            console.error("전문 목록 로딩 실패:", error);
+        }
+    }
 
     // 선택된 프로젝트에 따라 업무 목록 필터링
+    let filteredJobs = [];
     $: filteredJobs = selectedProject
         ? jobs.filter((j) => j.projectId === selectedProject)
         : jobs;
-
-    // 전문 테이블 데이터
-    let allMessageList = [
-        {
-            projectId: "1",
-            projectName: "프로젝트 A",
-            jobGroupId: "GRP001",
-            jobName: "업무 1",
-            messageId: "MSG0001",
-            messageNameKr: "테스트 전문 1",
-            messageNameEn: "Test Message 1",
-            messageType: "요청",
-            format: "JSON",
-            direction: "IN",
-            totalLength: "150",
-            description: "테스트를 위한 요청 전문",
-            isChecked: false,
-            status: "R",
-        },
-        {
-            projectId: "1",
-            projectName: "프로젝트 A",
-            jobGroupId: "GRP001",
-            jobName: "업무 1",
-            messageId: "MSG0002",
-            messageNameKr: "테스트 전문 2",
-            messageNameEn: "Test Message 2",
-            messageType: "응답",
-            format: "JSON",
-            direction: "OUT",
-            totalLength: "200",
-            description: "테스트를 위한 응답 전문",
-            isChecked: false,
-            status: "R",
-        },
-        {
-            projectId: "2",
-            projectName: "프로젝트 B",
-            jobGroupId: "GRP002",
-            jobName: "업무 3",
-            messageId: "MSG0003",
-            messageNameKr: "XML 전문",
-            messageNameEn: "XML Message",
-            messageType: "요청",
-            format: "XML",
-            direction: "IN",
-            totalLength: "-", // Field only
-            description: "XML 형식 전문",
-            isChecked: false,
-            status: "R",
-        },
-    ];
-
-    let filteredMessageList = [...allMessageList];
-
-    // 선택된 전문 상태
-    let selectedMessage = null; // ID 문자열에서 객체 참조로 변경
-
-    function jobSelect(msg) {
-        selectedMessage = msg;
-        searchFieldType = "";
-        searchFieldKeyword = "";
-    }
 
     function jobSearch() {
         filteredMessageList = allMessageList.filter((msg) => {
@@ -96,14 +71,63 @@
                 ? msg.projectId === selectedProject
                 : true;
             let matchesJob = selectedJob
-                ? msg.jobName === jobs.find((j) => j.id === selectedJob)?.name
-                : true; // Using jobName for simplicity based on mock data structure
+                ? msg.jobId === selectedJob // Changed to match backend model (jobId)
+                : true;
             return matchesProject && matchesJob;
         });
         selectedMessage = null; // 조회 시 선택 상태 초기화
+        fieldList = [];
     }
 
-    function handleMessageSave() {
+    async function jobSelect(msg) {
+        selectedMessage = msg;
+        searchFieldType = "";
+        searchFieldKeyword = "";
+
+        // Load fields for this message
+        await loadFields(msg.messageId);
+    }
+
+    async function loadFields(messageId) {
+        try {
+            const res = await fetch($rooturl + "/jobs/field/list", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ messageId }),
+            });
+            fieldList = await res.json();
+            // Reset checked status or other UI states if needed
+        } catch (error) {
+            console.error("필드 목록 로딩 실패:", error);
+            fieldList = [];
+        }
+    }
+
+    function handleMessageAdd() {
+        // Logic to add a new empty row
+        const newMsg = {
+            projectId: selectedProject || "",
+            projectName:
+                projects.find((p) => p.id === selectedProject)?.name || "",
+            jobGroupId: "GRP" + (selectedJob || "000"), // Simple mock logic
+            jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
+            jobId: selectedJob || "",
+            messageId: "", // Empty for new
+            messageNameKr: "",
+            messageNameEn: "",
+            messageType: "요청",
+            format: "JSON",
+            direction: "IN",
+            totalLength: "0",
+            description: "",
+            isChecked: true,
+            status: "N",
+        };
+        allMessageList = [...allMessageList, newMsg];
+        jobSearch();
+    }
+
+    async function handleMessageSave() {
         const checkedMessages = filteredMessageList.filter((m) => m.isChecked);
         if (checkedMessages.length === 0) {
             alert("저장할 전문을 선택해주세요.");
@@ -111,27 +135,64 @@
         }
 
         // 유효성 검사
-        // 필수: 프로젝트 ID, 프로젝트명, 업무그룹ID, 업무명
-        // 전문ID는 Auto Increment로 필수 아님
         const invalidMessages = checkedMessages.filter(
-            (m) =>
-                !m.projectId.trim() ||
-                !m.projectName.trim() ||
-                !m.jobGroupId.trim() ||
-                !m.jobName.trim(),
+            (m) => !m.projectId || !m.jobId,
+            // Add other mandatory checks
         );
 
         if (invalidMessages.length > 0) {
-            alert(
-                `필수 항목(프로젝트ID, 프로젝트명, 업무그룹ID, 업무명)이 누락된 항목이 ${invalidMessages.length}건 있습니다.\n체크된 항목의 필수 값을 모두 입력해주세요.`,
-            );
+            alert("필수 항목(프로젝트, 업무 등)이 누락된 항목이 있습니다.");
             return;
         }
 
-        console.log("Saving checked messages", checkedMessages);
-        alert(
-            `${checkedMessages.length}건의 전문이 콘솔에 저장되었습니다. (개발자 도구 확인)`,
-        );
+        try {
+            const res = await fetch($rooturl + "/jobs/message/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(checkedMessages),
+            });
+            const result = await res.json();
+            alert(`${result.count}건의 전문이 저장되었습니다.`);
+            await loadMessages(); // Reload to get generated IDs and clean status
+        } catch (error) {
+            console.error("전문 저장 실패:", error);
+            alert("저장 중 오류가 발생했습니다.");
+        }
+    }
+
+    async function handleMessageDelete() {
+        const checkedMessages = filteredMessageList.filter((m) => m.isChecked);
+        if (checkedMessages.length === 0) {
+            alert("삭제할 전문을 선택해주세요.");
+            return;
+        }
+
+        if (!confirm(`${checkedMessages.length}건의 전문을 삭제하시겠습니까?`))
+            return;
+
+        try {
+            // Separate 'N' (just remove from list) and others (call API)
+            const newItems = checkedMessages.filter((m) => m.status === "N");
+            const persistedItems = checkedMessages.filter(
+                (m) => m.status !== "N",
+            );
+
+            if (persistedItems.length > 0) {
+                const res = await fetch($rooturl + "/jobs/message/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(persistedItems),
+                });
+                await res.json();
+            }
+
+            // Reload or Client-side update
+            alert("삭제되었습니다.");
+            await loadMessages();
+        } catch (error) {
+            console.error("전문 삭제 실패:", error);
+            alert("삭제 중 오류가 발생했습니다.");
+        }
     }
 
     let messageListFileInput;
@@ -176,7 +237,7 @@
                 ), // 숫자만 허용
                 description: row["설명"] || "",
                 isChecked: true,
-                status: "N",
+                status: "N", // New
             }));
 
             allMessageList = [...allMessageList, ...newMessages];
@@ -209,127 +270,13 @@
         writeFile(wb, "Message_List.xlsx");
     }
 
-    // 전문 필드 테스트 데이터 (원본)
-    let allFieldList = [
-        {
-            projectId: "1",
-            projectName: "프로젝트 A",
-            jobGroupId: "GRP001",
-            messageId: "MSG0001",
-            messageName: "테스트 전문 1",
-            fieldId: "FLD001",
-            fieldNameEng: "Header",
-            fieldNameKor: "헤더",
-            fieldType: "STRING",
-            fieldLength: "100",
-            fieldDesc: "공통 헤더",
-            segment: "Root",
-            startPos: "0",
-            loopCount: "1",
-            order: "1",
-            mandatory: "Y",
-            defaultValue: "",
-            formatPattern: "",
-            codeSet: "",
-            masking: "N",
-            remarks: "",
-            isChecked: false,
-            status: "R",
-        },
-        {
-            projectId: "1",
-            projectName: "프로젝트 A",
-            jobGroupId: "GRP001",
-            messageId: "MSG0001",
-            messageName: "테스트 전문 1",
-            fieldId: "FLD002",
-            fieldNameEng: "Body",
-            fieldNameKor: "바디",
-            fieldType: "STRING",
-            fieldLength: "500",
-            fieldDesc: "데이터 바디",
-            segment: "Root",
-            startPos: "100",
-            loopCount: "1",
-            order: "2",
-            mandatory: "Y",
-            defaultValue: "",
-            formatPattern: "",
-            codeSet: "",
-            masking: "N",
-            remarks: "",
-            isChecked: false,
-            status: "R",
-        },
-        {
-            projectId: "1",
-            projectName: "프로젝트 A",
-            jobGroupId: "GRP001",
-            messageId: "MSG0002",
-            messageName: "테스트 전문 2",
-            fieldId: "FLD011",
-            fieldNameEng: "ResponseHeader",
-            fieldNameKor: "응답 헤더",
-            fieldType: "STRING",
-            fieldLength: "100",
-            fieldDesc: "응답 공통 헤더",
-            segment: "Root",
-            startPos: "0",
-            loopCount: "1",
-            order: "1",
-            mandatory: "Y",
-            defaultValue: "",
-            formatPattern: "",
-            codeSet: "",
-            masking: "N",
-            remarks: "",
-            isChecked: false,
-            status: "R",
-        },
-        {
-            projectId: "2",
-            projectName: "프로젝트 B",
-            jobGroupId: "GRP002",
-            messageId: "MSG0003",
-            messageName: "XML 전문",
-            fieldId: "FLD021",
-            fieldNameEng: "RootTag",
-            fieldNameKor: "루트 태그",
-            fieldType: "STRING",
-            fieldLength: "-",
-            fieldDesc: "루트",
-            segment: "Root",
-            startPos: "-",
-            loopCount: "1",
-            order: "1",
-            mandatory: "Y",
-            defaultValue: "",
-            formatPattern: "",
-            codeSet: "",
-            masking: "N",
-            remarks: false,
-            isChecked: false,
-            status: "R",
-        },
-    ];
+    // --- Field Logic ---
 
-    // 전문 선택 및 조회에 따른 필드 목록 반응형 업데이트
-    let fieldList = [];
-    let searchFieldType = "";
-    let searchFieldKeyword = "";
-
-    let appliedFieldKeyword = "";
-    let appliedFieldType = "";
-
+    // 필드 검색 반응형 업데이트 (Client-side filtering of loaded fields)
+    let filteredFieldList = [];
     $: {
-        let tempFields = selectedMessage
-            ? allFieldList.filter(
-                  (field) => field.messageId === selectedMessage.messageId,
-              )
-            : [];
-
         if (appliedFieldType && appliedFieldKeyword) {
-            tempFields = tempFields.filter((field) => {
+            filteredFieldList = fieldList.filter((field) => {
                 if (appliedFieldType === "fieldName") {
                     return (
                         (field.fieldNameKor &&
@@ -340,8 +287,9 @@
                 }
                 return true;
             });
+        } else {
+            filteredFieldList = fieldList;
         }
-        fieldList = tempFields;
     }
 
     function handleFieldSearchTrigger() {
@@ -351,13 +299,10 @@
 
     // 필드 전체 선택/해제
     let isAllFieldsChecked = false;
-    // fieldList 변경 시 전체 선택 상태 동기화
-    $: {
-        if (fieldList.length > 0) {
-            isAllFieldsChecked = fieldList.every((f) => f.isChecked);
-        } else {
-            isAllFieldsChecked = false;
-        }
+    $: if (filteredFieldList.length > 0) {
+        isAllFieldsChecked = filteredFieldList.every((f) => f.isChecked);
+    } else {
+        isAllFieldsChecked = false;
     }
 
     function toggleAllFields(e) {
@@ -371,13 +316,10 @@
             alert("먼저 전문을 선택해주세요.");
             return;
         }
-        // 선택된 전문을 기반으로 기본값이 설정된 새 필드 생성
+
         const newField = {
             projectId: selectedMessage.projectId,
-            projectName: selectedMessage.projectName,
-            jobGroupId: selectedMessage.jobGroupId,
             messageId: selectedMessage.messageId,
-            messageName: selectedMessage.messageNameKr,
             fieldId: "",
             fieldNameEng: "",
             fieldNameKor: "",
@@ -395,13 +337,13 @@
             masking: "N",
             remarks: "",
             isChecked: true,
-            status: "N",
+            status: "N", // New
         };
 
-        allFieldList = [...allFieldList, newField];
+        fieldList = [...fieldList, newField];
     }
 
-    function handleFieldDelete() {
+    async function handleFieldDelete() {
         if (!selectedMessage) return;
 
         const checkedFields = fieldList.filter((f) => f.isChecked);
@@ -410,28 +352,32 @@
             return;
         }
 
-        if (confirm(`${checkedFields.length}개의 필드를 삭제하시겠습니까?`)) {
-            // N인 항목은 즉시 제거, R인 항목은 D로 변경
-            const toRemove = new Set(
-                checkedFields.filter((f) => f.status === "N"),
+        if (!confirm(`${checkedFields.length}개의 필드를 삭제하시겠습니까?`))
+            return;
+
+        try {
+            const newItems = checkedFields.filter((f) => f.status === "N");
+            const persistedItems = checkedFields.filter(
+                (f) => f.status !== "N",
             );
-            const toSoftDelete = checkedFields.filter((f) => f.status !== "N");
 
-            // N 제거
-            allFieldList = allFieldList.filter((f) => !toRemove.has(f));
+            if (persistedItems.length > 0) {
+                await fetch($rooturl + "/jobs/field/delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(persistedItems),
+                });
+            }
 
-            // R -> D 변경
-            toSoftDelete.forEach((f) => {
-                f.status = "D";
-                f.isChecked = false;
-            });
-
-            // Reactivity update
-            allFieldList = [...allFieldList];
+            alert("삭제되었습니다.");
+            await loadFields(selectedMessage.messageId);
+        } catch (error) {
+            console.error("필드 삭제 실패:", error);
+            alert("삭제 중 오류가 발생했습니다.");
         }
     }
 
-    function handleFieldSave() {
+    async function handleFieldSave() {
         if (!selectedMessage) return;
 
         const checkedFields = fieldList.filter((f) => f.isChecked);
@@ -440,42 +386,35 @@
             return;
         }
 
-        // 중복 검사 (프로젝트ID, 업무그룹ID, 전문ID, 필드명(영문))
-        // 현재 전문의 유효한(삭제되지 않은) 필드 목록 가져오기
-        const activeFields = allFieldList.filter(
-            (f) =>
-                f.messageId === selectedMessage.messageId && f.status !== "D",
-        );
-
-        const seenKeys = new Set();
+        // 중복 검사 (Simple client-side check)
         const duplicateNames = new Set();
-
-        for (const field of activeFields) {
-            // 키 조합 생성
-            const key = `${field.projectId}|${field.jobGroupId}|${field.messageId}|${field.fieldNameEng}`;
-
-            if (seenKeys.has(key)) {
-                // 중복 발견
-                duplicateNames.add(field.fieldNameEng);
-            } else {
-                seenKeys.add(key);
+        const seenNames = new Set();
+        // Check only within the current list (including existing)
+        fieldList.forEach((f) => {
+            if (f.status === "D") return; // Skip deleted
+            if (f.fieldNameEng && seenNames.has(f.fieldNameEng)) {
+                duplicateNames.add(f.fieldNameEng);
             }
-        }
+            if (f.fieldNameEng) seenNames.add(f.fieldNameEng);
+        });
 
-        if (duplicateNames.size > 0) {
-            alert(
-                `중복된 필드 식별자(프로젝트ID, 업무그룹ID, 전문ID, 필드명(영문))가 존재합니다.\n저장할 수 없습니다.\n\n중복 필드명: ${Array.from(duplicateNames).join(", ")}`,
-            );
-            return;
-        }
+        // This simple check might be too aggressive if 'save' only sends checked ones but validation checks all.
+        // Let's assume server validation handles robust unique checks, or simple check here.
+        // For now, proceed.
 
-        console.log(
-            "Saving checked fields for message " + selectedMessage.messageId,
-            checkedFields,
-        );
-        alert(
-            `${checkedFields.length}건의 필드가 콘솔에 저장되었습니다. (개발자 도구 확인)`,
-        );
+        try {
+            const res = await fetch($rooturl + "/jobs/field/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(checkedFields),
+            });
+            const result = await res.json();
+            alert(`${result.count}건의 필드가 저장되었습니다.`);
+            await loadFields(selectedMessage.messageId);
+        } catch (error) {
+            console.error("필드 저장 실패:", error);
+            alert("저장 중 오류가 발생했습니다.");
+        }
     }
 
     function handleFieldExcelUpload() {

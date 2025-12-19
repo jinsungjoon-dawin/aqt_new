@@ -5,21 +5,23 @@
   import CommonDataManage from "./lib/CommonDataManage.svelte";
   import JobManage from "./lib/JobManage.svelte";
   import JobDataManage from "./lib/JobDataManage.svelte";
-  import Sample from "./lib/Sample.svelte";
-  import Test from "./lib/Test.svelte";
-  import Tree from "./lib/Tree.svelte";
-  import TreeCRUD from "./lib/TreeCRUD.svelte";
   import Job from "./lib/Job.svelte";
   import Project from "./lib/Project.svelte";
   // @ts-ignore
   import CommHeader from "./lib/CommHeader.svelte";
   // @ts-ignore
   import CommHeaderData from "./lib/CommHeaderData.svelte";
+  import JobDataTree from "./lib/JobDataTree.svelte";
+  import Sample from "./lib/Sample.svelte";
+  import Test from "./lib/Test.svelte";
+  import Tree from "./lib/Tree.svelte";
+  import TreeCRUD from "./lib/TreeCRUD.svelte";
+
   import { isLogged, userid, t } from "./aqtstore";
   import { onMount } from "svelte";
   // @ts-ignore
-  let cnm = Company;
-  let pageNm = "작업 관리";
+  let cnm = Project;
+  let pageNm = "프로젝트 업무 정보";
   let menuIdx = 0;
   let today = "";
 
@@ -27,18 +29,20 @@
     {
       pageNm: "기초정보",
       subMenus: [
-        { pageNm: "고객사 관리", cnm: Company },
         { pageNm: "프로젝트 업무 정보", cnm: Project },
         { pageNm: "CommHeader 등록", cnm: CommHeader },
-        { pageNm: "CommHeader 자료등록", cnm: CommHeaderData },
-        { pageNm: "공통항목 관리", cnm: CommonManage },
-        { pageNm: "공통항목 데이터 관리", cnm: CommonDataManage },
+        { pageNm: "CommHeader자료등록", cnm: CommHeaderData },
         { pageNm: "업무 관리", cnm: JobManage },
         { pageNm: "업무 데이터 관리", cnm: JobDataManage },
-        // { pageNm: "샘플", cnm: Sample },
-        // { pageNm: "테스트", cnm: Test },
-        // { pageNm: "트리 구조 확인", cnm: Tree },
-        // { pageNm: "트리 CRUD", cnm: TreeCRUD },
+        { pageNm: "업무 데이터 트리", cnm: JobDataTree },
+      ],
+    },
+    {
+      pageNm: "샘플",
+      subMenus: [
+        { pageNm: "고객사 관리", cnm: Company },
+        { pageNm: "공통항목 관리", cnm: CommonManage },
+        { pageNm: "공통항목 데이터 관리", cnm: CommonDataManage },
         { pageNm: "Job Config", cnm: Job },
       ],
     },
