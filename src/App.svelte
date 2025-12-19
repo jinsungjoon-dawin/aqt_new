@@ -4,7 +4,7 @@
   import CommonManage from "./lib/CommonManage.svelte";
   import CommonDataManage from "./lib/CommonDataManage.svelte";
   import JobManage from "./lib/JobManage.svelte";
-  import JobDataManage from "./lib/JobDataManage.svelte";
+  import JobDataManage from "./lib/JobDataManage.svelte"; // Change from JobDataManage
   import Sample from "./lib/Sample.svelte";
   import Test from "./lib/Test.svelte";
   import Tree from "./lib/Tree.svelte";
@@ -25,11 +25,7 @@
         { pageNm: "공통항목 관리", cnm: CommonManage },
         { pageNm: "공통항목 데이터 관리", cnm: CommonDataManage },
         { pageNm: "업무 관리", cnm: JobManage },
-        { pageNm: "업무 데이터 관리", cnm: JobDataManage },
-        // { pageNm: "샘플", cnm: Sample },
-        // { pageNm: "테스트", cnm: Test },
-        // { pageNm: "트리 구조 확인", cnm: Tree },
-        // { pageNm: "트리 CRUD", cnm: TreeCRUD },
+        { pageNm: "업무 데이터 관리", cnm: JobDataManage }, // Update component
         { pageNm: "Job Config", cnm: Job },
       ],
     },

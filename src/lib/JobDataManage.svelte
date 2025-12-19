@@ -1,298 +1,599 @@
 <script>
     import { onMount } from "svelte";
-    import { rooturl } from "../aqtstore";
+    import { read, utils, writeFile } from "xlsx";
 
-    // Schema definition (columns)
-    let items = [
-        {
-            id: 1,
-            field_name: "msg_len",
-            field_length: "1",
-            field_description: "메시지",
-        },
-        {
-            id: 2,
-            field_name: "glob_id",
-            field_length: "20",
-            field_description: "글로벌 id",
-        },
-        {
-            id: 3,
-            field_name: "recv_svc_c",
-            field_length: "8",
-            field_description: "수신 서비스 코드",
-        },
-        {
-            id: 4,
-            field_name: "rst_recv_svc_c",
-            field_length: "8",
-            field_description: "수신 응답 서비스 코드",
-        },
-        {
-            id: 5,
-            field_name: "rqst_resp_g",
-            field_length: "1",
-            field_description: "요청응답 구분",
-        },
-    ];
-
-    // Actual Data
-    let allDataList = [
-        {
-            id: "1",
-            company_id: "1",
-            job_name: "기업은행 전문1",
-            msg_len: "0",
-            glob_id: "20240814180720426110004282383302",
-            recv_svc_c: "NSBCO0755S02",
-            rst_recv_svc_c: "NSBCO0755S02",
-            rqst_resp_g: "R",
-        },
-        {
-            id: "2",
-            company_id: "1",
-            job_name: "기업은행 전문1",
-            msg_len: "0",
-            glob_id: "20240814180720426110004282383302",
-            recv_svc_c: "NSBCO0755S03",
-            rst_recv_svc_c: "NSBCO0755S03",
-            rqst_resp_g: "R",
-        },
-    ];
-
-    let dataList = [...allDataList];
-
+    // 데이터 상태
+    let projects = [];
+    let jobs = [];
+    let messages = []; // 전문 목록
+    let dataList = []; // 그리드 데이터
+    let dynamicColumns = []; // 동적 컬럼 목록
     let isLoading = false;
-    let errorMessage = "";
 
-    let selectedCompany = "";
-    let searchKeyword = "";
-    let selectedIds = new Set();
+    // 필터 상태
+    let selectedProject = "";
+    let selectedJob = "";
+    let selectedMessageId = "";
+    let filteredJobs = [];
+    let filteredMessages = [];
 
-    function toggleAll(event) {
-        if (event.target.checked) {
-            selectedIds = new Set(dataList.map((c) => c.id));
-        } else {
-            selectedIds = new Set();
+    // Mock Messages (실제 API 연동 시 교체 필요)
+    const mockMessages = [
+        { id: "MSG001", name: "CommHeader", projectId: "1", jobId: "1" },
+        { id: "MSG002", name: "UserData", projectId: "1", jobId: "1" },
+        { id: "MSG003", name: "ProductInfo", projectId: "1", jobId: "2" },
+    ];
+
+    onMount(async () => {
+        try {
+            const projectRes = await fetch("/api/jobs/project/list");
+            projects = await projectRes.json();
+
+            const jobRes = await fetch("/api/jobs/job/list");
+            jobs = await jobRes.json();
+        } catch (error) {
+            console.error("데이터 로딩 실패:", error);
         }
-        selectedIds = selectedIds;
+    });
+
+    // 프로젝트 선택 -> 업무 목록 필터링
+    $: {
+        filteredJobs = selectedProject
+            ? jobs.filter((j) => j.projectId === selectedProject)
+            : jobs;
+        // 프로젝트 변경 시 업무/전문 초기화
+        if (selectedJob && !filteredJobs.find((j) => j.id === selectedJob)) {
+            selectedJob = "";
+        }
     }
 
-    function toggleOne(id) {
-        if (selectedIds.has(id)) {
-            selectedIds.delete(id);
-        } else {
-            selectedIds.add(id);
+    // 업무 선택 -> 전문 목록 필터링
+    $: {
+        filteredMessages = selectedJob
+            ? mockMessages.filter((m) => m.jobId === selectedJob)
+            : [];
+        // 업무 변경 시 전문 초기화
+        if (
+            selectedMessageId &&
+            !filteredMessages.find((m) => m.id === selectedMessageId)
+        ) {
+            selectedMessageId = "";
         }
-        selectedIds = selectedIds;
     }
 
-    async function deleteSelected() {
-        if (selectedIds.size === 0) {
+    // 조회 함수
+    async function handleSearch() {
+        if (!selectedMessageId) {
+            alert("조회할 전문을 선택해주세요.");
+            return;
+        }
+
+        isLoading = true;
+        // Mock API Call
+        setTimeout(() => {
+            const result = generateMockData(selectedMessageId);
+            dataList = result.data;
+            dynamicColumns = result.columns;
+            isLoading = false;
+        }, 500);
+    }
+
+    // 데이터 생성 (Mock)
+    function generateMockData(msgId) {
+        // 고정 데이터 (Fixed Columns에 들어갈 값들)
+        const commonData = {
+            projectId: selectedProject,
+            projectName:
+                projects.find((p) => p.id === selectedProject)?.name || "",
+            jobGroupId: "GRP_" + selectedJob,
+            jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
+            messageId: msgId,
+            messageName:
+                filteredMessages.find((m) => m.id === msgId)?.name || "",
+        };
+
+        const rows = [];
+        let columns = [];
+
+        if (msgId === "MSG001") {
+            columns = ["TrxDate", "TrxTime", "GlobalId", "Channel"];
+            for (let i = 0; i < 5; i++) {
+                rows.push({
+                    ...commonData,
+                    isChecked: false,
+                    status: "R",
+                    dynamicData: {
+                        TrxDate: "20241218",
+                        TrxTime: "12000" + i,
+                        GlobalId:
+                            "GID" + Math.random().toString(36).substr(2, 8),
+                        Channel: "WEB",
+                    },
+                });
+            }
+        } else {
+            columns = ["FieldA", "FieldB", "FieldC"];
+            for (let i = 0; i < 3; i++) {
+                rows.push({
+                    ...commonData,
+                    isChecked: false,
+                    status: "R",
+                    dynamicData: {
+                        FieldA: "Data-" + i,
+                        FieldB: Math.floor(Math.random() * 100),
+                        FieldC: "Test",
+                    },
+                });
+            }
+        }
+        return { data: rows, columns };
+    }
+
+    // 추가
+    function handleAdd() {
+        if (!selectedMessageId) {
+            alert("전문을 선택해주세요.");
+            return;
+        }
+        if (dynamicColumns.length === 0) {
+            // 컬럼 정보가 없으면 조회를 먼저 하도록 유도하거나 빈 컬럼으로 시작
+            // 여기서는 임의로 컬럼이 없으면 'NewField' 하나 생성
+            dynamicColumns = ["NewField"];
+        }
+
+        const newRow = {
+            projectId: selectedProject,
+            projectName:
+                projects.find((p) => p.id === selectedProject)?.name || "",
+            jobGroupId: "GRP_" + selectedJob,
+            jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
+            messageId: selectedMessageId,
+            messageName:
+                filteredMessages.find((m) => m.id === selectedMessageId)
+                    ?.name || "",
+            isChecked: true,
+            status: "N",
+            dynamicData: {},
+        };
+
+        dynamicColumns.forEach((col) => {
+            newRow.dynamicData[col] = "";
+        });
+
+        dataList = [...dataList, newRow];
+    }
+
+    // 삭제
+    function handleDelete() {
+        const checked = dataList.filter((d) => d.isChecked);
+        if (checked.length === 0) {
             alert("삭제할 항목을 선택해주세요.");
             return;
         }
-        if (
-            !confirm(
-                "선택한 " + selectedIds.size + "개 항목을 삭제하시겠습니까?",
-            )
-        )
+
+        if (confirm(`${checked.length}건을 삭제하시겠습니까?`)) {
+            // N -> 즉시 제거, R -> D
+            const toRemove = new Set(checked.filter((d) => d.status === "N"));
+            const toSoftDelete = checked.filter((d) => d.status !== "N");
+
+            dataList = dataList.filter((d) => !toRemove.has(d));
+            toSoftDelete.forEach((d) => {
+                d.status = "D";
+                d.isChecked = false;
+            });
+            dataList = [...dataList];
+        }
+    }
+
+    // 저장
+    function handleSave() {
+        const target = dataList.filter(
+            (d) => d.isChecked || d.status === "N" || d.status === "D",
+        );
+        if (target.length === 0) {
+            alert("저장할 변경사항이 없습니다.");
             return;
-
-        allDataList = allDataList.filter((item) => !selectedIds.has(item.id));
-        fetchData();
-        selectedIds = new Set();
+        }
+        console.log("Saving...", target);
+        alert(`${target.length}건을 저장했습니다. (콘솔 확인)`);
     }
 
-    async function fetchData() {
-        // Client-side filtering simulation
-        dataList = allDataList.filter((item) => {
-            const matchCompany =
-                selectedCompany === "" || item.company_id === selectedCompany;
-            const matchKeyword =
-                searchKeyword === "" || item.job_name.includes(searchKeyword);
-            return matchCompany && matchKeyword;
-        });
+    // 전체 선택
+    let isAllChecked = false;
+    function toggleAll(e) {
+        const checked = e.target.checked;
+        isAllChecked = checked;
+        dataList = dataList.map((d) => ({ ...d, isChecked: checked }));
     }
 
-    function addRow() {
-        const newData = {
-            id: "NEW_" + Date.now(),
-            company_id: selectedCompany || "1",
-            job_name: "",
+    // 개별 체크 -> 전체 선택 상태 업데이트
+    $: {
+        if (dataList.length > 0) {
+            isAllChecked = dataList.every((d) => d.isChecked);
+        } else {
+            isAllChecked = false;
+        }
+    }
+
+    // 엑셀 관련 변수
+    let fileInput;
+
+    function handleExcelUploadTrigger() {
+        if (!selectedMessageId) {
+            alert("전문을 선택해주세요.");
+            return;
+        }
+        fileInput.click();
+    }
+
+    function handleFileChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const jsonData = utils.sheet_to_json(worksheet);
+
+            if (jsonData.length === 0) {
+                alert("엑셀 파일에 데이터가 없습니다.");
+                fileInput.value = "";
+                return;
+            }
+
+            // Fixed Keys to ignore when identifying dynamic columns
+            // These match the keys used in handleExcelDownload
+            const fixedKeys = new Set([
+                "프로젝트 ID",
+                "프로젝트명",
+                "업무그룹 ID",
+                "c_target_sys_c(업무명)",
+                "전문 ID",
+                "전문 Name",
+                "__rowNum__",
+            ]);
+
+            // 1. Identify Dynamic Columns from Excel Headers
+            const excelKeys = Object.keys(jsonData[0]);
+            const newDynamicCols = excelKeys.filter((k) => !fixedKeys.has(k));
+
+            // 2. Update dynamicColumns: Add any new columns found in Excel
+            let updatedDynamicColumns = [...dynamicColumns];
+            newDynamicCols.forEach((col) => {
+                if (!updatedDynamicColumns.includes(col)) {
+                    updatedDynamicColumns.push(col);
+                }
+            });
+            dynamicColumns = updatedDynamicColumns;
+
+            // 3. Map Excel rows to Data Objects
+            const newRows = jsonData.map((row) => {
+                const dynamicData = {};
+
+                // Fill dynamic data (including new columns, default to empty if missing in row)
+                dynamicColumns.forEach((col) => {
+                    dynamicData[col] =
+                        row[col] !== undefined ? String(row[col]) : "";
+                });
+
+                return {
+                    projectId: selectedProject,
+                    projectName:
+                        projects.find((p) => p.id === selectedProject)?.name ||
+                        "",
+                    jobGroupId: "GRP_" + selectedJob,
+                    jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
+                    messageId: selectedMessageId,
+                    messageName:
+                        filteredMessages.find((m) => m.id === selectedMessageId)
+                            ?.name || "",
+                    isChecked: true,
+                    status: "N", // New status
+                    dynamicData: dynamicData,
+                };
+            });
+
+            // 4. Append to Table
+            dataList = [...dataList, ...newRows];
+            alert(`${newRows.length}건이 테이블에 추가되었습니다.`);
+            fileInput.value = "";
         };
-        // Initialize fields based on schema
-        items.forEach((col) => {
-            newData[col.field_name] = "";
+        reader.readAsArrayBuffer(file);
+    }
+
+    function handleExcelDownload() {
+        if (dataList.length === 0) {
+            alert("다운로드할 데이터가 없습니다.");
+            return;
+        }
+        // Flatten data for export
+        const exportData = dataList.map((row) => {
+            const flat = {
+                "프로젝트 ID": row.projectId,
+                프로젝트명: row.projectName,
+                "업무그룹 ID": row.jobGroupId,
+                "c_target_sys_c(업무명)": row.jobName,
+                "전문 ID": row.messageId,
+                "전문 Name": row.messageName,
+            };
+            // Dynamic columns
+            dynamicColumns.forEach((col) => {
+                flat[col] = row.dynamicData[col];
+            });
+            return flat;
         });
 
-        allDataList = [newData, ...allDataList];
-        fetchData();
-        selectedIds = new Set([newData.id]);
+        const ws = utils.json_to_sheet(exportData);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "JobData");
+        writeFile(wb, "JobData.xlsx");
     }
-
-    async function handleSave() {
-        alert("저장 기능 구현 예정 (Dynamic Data Save)");
-    }
-
-    onMount(() => {
-        fetchData();
-    });
 </script>
 
-<div class="container mx-auto p-4 lg:p-8 bg-gray-50 min-h-screen">
-    <div class="flex justify-between items-center mb-6">
-        <h2 class="text-2xl lg:text-3xl font-bold text-gray-700">
-            업무 데이터 관리
-        </h2>
-        <div class="space-x-2 flex items-center">
-            <select
-                bind:value={selectedCompany}
-                class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
-            >
-                <option value="">전체</option>
-                <option value="1">기업은행</option>
-                <option value="2">국민은행</option>
-            </select>
-            <input
-                type="text"
-                bind:value={searchKeyword}
-                placeholder="업무명 입력"
-                class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
-                on:keydown={(e) => e.key === "Enter" && fetchData()}
-            />
-            <button
-                on:click={fetchData}
-                class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white px-3 py-1 text-sm rounded-sm border border-blue-500 hover:border-transparent transition"
-            >
-                조회
-            </button>
-            <button
-                on:click={addRow}
-                class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white px-3 py-1 text-sm rounded-sm border border-blue-500 hover:border-transparent transition"
-            >
-                추가
-            </button>
-            <button
-                on:click={deleteSelected}
-                class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white px-3 py-1 text-sm rounded-sm border border-blue-500 hover:border-transparent transition"
-            >
-                삭제
-            </button>
-            <button
-                on:click={handleSave}
-                class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white px-3 py-1 text-sm rounded-sm border border-blue-500 hover:border-transparent transition"
-            >
-                저장
-            </button>
+<div
+    class="container mx-auto p-4 lg:p-8 bg-gray-50 flex flex-col h-[calc(100vh-4.1rem)] gap-4"
+>
+    <!-- Top Pane: Filter & Actions -->
+    <div class="bg-white border border-gray-300 rounded shadow overflow-hidden">
+        <!-- Header Section -->
+        <div
+            class="p-4 border-b border-gray-200 bg-gray-100 flex flex-wrap justify-between items-center gap-2"
+        >
+            <h2 class="text-xl font-bold text-gray-700">전문 자료등록</h2>
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Project Select -->
+                <div class="flex items-center">
+                    <span class="text-gray-700 font-semibold px-2 text-sm"
+                        >프로젝트</span
+                    >
+                    <select
+                        bind:value={selectedProject}
+                        class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
+                    >
+                        <option value="">프로젝트 선택</option>
+                        {#each projects as project}
+                            <option value={project.id}>{project.name}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <!-- Job Select -->
+                <div class="flex items-center">
+                    <span class="text-gray-700 font-semibold px-2 text-sm"
+                        >업무</span
+                    >
+                    <select
+                        bind:value={selectedJob}
+                        class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
+                    >
+                        <option value="">업무 선택</option>
+                        {#each filteredJobs as job}
+                            <option value={job.id}>{job.name}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <!-- Message Select -->
+                <div class="flex items-center">
+                    <span class="text-gray-700 font-semibold px-2 text-sm"
+                        >전문</span
+                    >
+                    <select
+                        bind:value={selectedMessageId}
+                        class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[150px]"
+                    >
+                        <option value="">전문 선택</option>
+                        {#each filteredMessages as msg}
+                            <option value={msg.id}>{msg.name}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <div class="flex gap-1 ml-2">
+                    <button
+                        on:click={handleSearch}
+                        class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-3 py-1 text-xs rounded border border-blue-300 hover:border-blue-400 transition"
+                    >
+                        조회
+                    </button>
+                    <button
+                        on:click={handleAdd}
+                        class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-3 py-1 text-xs rounded border border-blue-300 hover:border-blue-400 transition"
+                    >
+                        추가
+                    </button>
+                    <button
+                        on:click={handleDelete}
+                        class="bg-white hover:bg-red-50 text-red-600 font-semibold hover:text-red-700 px-3 py-1 text-xs rounded border border-red-300 hover:border-red-400 transition"
+                    >
+                        삭제
+                    </button>
+                    <button
+                        on:click={handleSave}
+                        class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-3 py-1 text-xs rounded border border-blue-300 hover:border-blue-400 transition"
+                    >
+                        저장
+                    </button>
+                    <div class="w-px h-6 bg-gray-300 mx-1"></div>
+                    <button
+                        on:click={handleExcelUploadTrigger}
+                        class="bg-white hover:bg-green-50 text-green-600 font-semibold hover:text-green-700 px-3 py-1 text-xs rounded border border-green-300 hover:border-green-400 transition"
+                    >
+                        엑셀 업로드
+                    </button>
+                    <button
+                        on:click={handleExcelDownload}
+                        class="bg-white hover:bg-green-50 text-green-600 font-semibold hover:text-green-700 px-3 py-1 text-xs rounded border border-green-300 hover:border-green-400 transition"
+                    >
+                        엑셀 다운로드
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    {#if errorMessage}
-        <div
-            class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4"
-            role="alert"
-        >
-            <p>{errorMessage}</p>
-        </div>
-    {/if}
-
+    <!-- Table Section -->
     <div
-        class="bg-white shadow overflow-hidden border border-gray-300 mt-4 overflow-x-auto"
+        class="flex-1 overflow-auto bg-white border border-gray-300 rounded shadow"
     >
-        <table
-            class="min-w-full border-collapse border border-gray-300 text-sm whitespace-nowrap"
-        >
-            <thead class="bg-gray-50 text-gray-700">
+        <table class="min-w-full border-collapse text-sm whitespace-nowrap">
+            <thead class="bg-gray-50 text-gray-700 sticky top-0 z-10 shadow-sm">
                 <tr>
-                    <th class="w-10 border border-gray-300 p-0 text-center">
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-8"
+                    >
                         <input
                             type="checkbox"
                             on:change={toggleAll}
-                            checked={dataList.length > 0 &&
-                                selectedIds.size === dataList.length}
-                            class="align-middle mt-1"
+                            checked={isAllChecked}
                         />
                     </th>
+                    <!-- Fixed Columns -->
                     <th
-                        class="border border-gray-300 px-2 py-1 text-center font-bold bg-gray-100 text-gray-600 select-none"
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-10"
+                        >상태</th
                     >
-                        업무명
-                    </th>
-                    {#each items as item}
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >프로젝트 ID</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >프로젝트명</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >업무그룹 ID</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >c_target_sys_c (업무명)</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >전문 ID</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >전문 Name</th
+                    >
+
+                    <!-- Dynamic Columns -->
+                    {#each dynamicColumns as col}
                         <th
-                            class="border border-gray-300 px-2 py-1 text-center font-bold bg-gray-100 text-gray-600 select-none"
-                            style="min-width: 100px;"
+                            class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                            >{col}</th
                         >
-                            {item.field_description}
-                        </th>
                     {/each}
+                    <th
+                        class="border-b border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >...</th
+                    >
                 </tr>
             </thead>
             <tbody class="bg-white">
-                {#each dataList as row, index (row.id)}
+                {#if isLoading}
                     <tr
-                        class="hover:bg-gray-50 {selectedIds.has(row.id)
-                            ? 'bg-blue-50'
-                            : ''}"
-                        on:click={() => toggleOne(row.id)}
+                        ><td colspan="100" class="text-center py-4"
+                            >로딩중...</td
+                        ></tr
                     >
-                        <td
-                            class="border border-gray-300 p-0 text-center bg-gray-50"
-                            on:click|stopPropagation
+                {:else if dataList.length === 0}
+                    <tr
+                        ><td
+                            colspan="100"
+                            class="text-center py-4 text-gray-500"
+                            >데이터가 없습니다.</td
+                        ></tr
+                    >
+                {:else}
+                    {#each dataList as row}
+                        <tr
+                            class="hover:bg-blue-50 transition-colors border-b border-gray-200 {row.isChecked
+                                ? 'bg-blue-100'
+                                : ''}"
                         >
-                            <input
-                                type="checkbox"
-                                checked={selectedIds.has(row.id)}
-                                on:change={() => toggleOne(row.id)}
-                                class="align-middle mt-1"
-                            />
-                        </td>
-                        <td
-                            class="border border-gray-300 px-2 py-1 outline-none focus:ring-2 focus:ring-green-500 focus:z-10 relative cursor-text text-gray-900"
-                            contenteditable="true"
-                            bind:textContent={row.job_name}
-                            on:click|stopPropagation
-                        >
-                        </td>
-                        {#each items as col}
                             <td
-                                class="border border-gray-300 px-2 py-1 outline-none focus:ring-2 focus:ring-green-500 focus:z-10 relative cursor-text text-gray-900"
-                                contenteditable="true"
-                                bind:textContent={row[col.field_name]}
-                                on:click|stopPropagation
+                                class="border-r border-gray-200 px-2 py-1 text-center"
                             >
+                                <input
+                                    type="checkbox"
+                                    bind:checked={row.isChecked}
+                                />
                             </td>
-                        {/each}
-                    </tr>
-                {/each}
-                {#if dataList.length === 0 && !isLoading}
-                    <tr>
-                        <td
-                            class="border border-gray-300 px-2 py-1 h-8 text-center"
-                            colspan={items.length + 2}
-                            >해당 데이터가 없습니다.</td
-                        >
-                    </tr>
+                            <!-- Fixed Values -->
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center font-semibold {row.status ===
+                                'N'
+                                    ? 'text-green-600'
+                                    : row.status === 'D'
+                                      ? 'text-red-500'
+                                      : 'text-gray-600'}"
+                            >
+                                {row.status}
+                            </td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.projectId}</td
+                            >
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.projectName}</td
+                            >
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.jobGroupId}</td
+                            >
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.jobName}</td
+                            >
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.messageId}</td
+                            >
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.messageName}</td
+                            >
+
+                            <!-- Dynamic Values (Editable) -->
+                            {#each dynamicColumns as col}
+                                <td
+                                    class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                    contenteditable="true"
+                                    bind:textContent={row.dynamicData[col]}
+                                    on:input={() => {
+                                        if (row.status === "R")
+                                            row.status = "U";
+                                        row.isChecked = true;
+                                    }}
+                                ></td>
+                            {/each}
+                            <td class="border-r border-gray-200"></td>
+                        </tr>
+                    {/each}
                 {/if}
             </tbody>
         </table>
     </div>
+
+    <input
+        type="file"
+        bind:this={fileInput}
+        on:change={handleFileChange}
+        class="hidden"
+        accept=".xlsx, .xls"
+    />
 </div>
 
 <style>
-    /* Optional: Simple fade-in animation for modal */
-    @keyframes fade-in-down {
-        0% {
-            opacity: 0;
-            transform: translateY(-10px);
-        }
-        100% {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    .animate-fade-in-down {
-        animation: fade-in-down 0.3s ease-out;
+    /* Table Styling overrides if needed */
+    th,
+    td {
+        white-space: nowrap;
     }
 </style>

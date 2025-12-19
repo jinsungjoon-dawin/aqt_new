@@ -8,5 +8,14 @@ export default defineConfig({
     alias: {
       buffer: 'buffer',
     },
-  }
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5880',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
 })
