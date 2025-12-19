@@ -4,14 +4,20 @@
   import CommonManage from "./lib/CommonManage.svelte";
   import CommonDataManage from "./lib/CommonDataManage.svelte";
   import JobManage from "./lib/JobManage.svelte";
-  import JobDataManage from "./lib/JobDataManage.svelte"; // Change from JobDataManage
+  import JobDataManage from "./lib/JobDataManage.svelte";
   import Sample from "./lib/Sample.svelte";
   import Test from "./lib/Test.svelte";
   import Tree from "./lib/Tree.svelte";
   import TreeCRUD from "./lib/TreeCRUD.svelte";
   import Job from "./lib/Job.svelte";
+  import Project from "./lib/Project.svelte";
+  // @ts-ignore
+  import CommHeader from "./lib/CommHeader.svelte";
+  // @ts-ignore
+  import CommHeaderData from "./lib/CommHeaderData.svelte";
   import { isLogged, userid, t } from "./aqtstore";
   import { onMount } from "svelte";
+  // @ts-ignore
   let cnm = Company;
   let pageNm = "작업 관리";
   let menuIdx = 0;
@@ -22,10 +28,17 @@
       pageNm: "기초정보",
       subMenus: [
         { pageNm: "고객사 관리", cnm: Company },
+        { pageNm: "프로젝트 업무 정보", cnm: Project },
+        { pageNm: "CommHeader 등록", cnm: CommHeader },
+        { pageNm: "CommHeader 자료등록", cnm: CommHeaderData },
         { pageNm: "공통항목 관리", cnm: CommonManage },
         { pageNm: "공통항목 데이터 관리", cnm: CommonDataManage },
         { pageNm: "업무 관리", cnm: JobManage },
-        { pageNm: "업무 데이터 관리", cnm: JobDataManage }, // Update component
+        { pageNm: "업무 데이터 관리", cnm: JobDataManage },
+        // { pageNm: "샘플", cnm: Sample },
+        // { pageNm: "테스트", cnm: Test },
+        // { pageNm: "트리 구조 확인", cnm: Tree },
+        // { pageNm: "트리 CRUD", cnm: TreeCRUD },
         { pageNm: "Job Config", cnm: Job },
       ],
     },
