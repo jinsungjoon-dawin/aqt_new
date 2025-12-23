@@ -5,6 +5,7 @@ import { notFound, errorHandler } from './middle/errors.js';
 import { fileURLToPath } from "url";
 import logonchk from './cntr/logonchk.js';
 import jobsManagement from './cntr/jobsManagement.js'
+import commonController from './cntr/commonController.js'
 import company from './cntr/company.js'
 
 
@@ -35,6 +36,7 @@ app.get('/', (req, res) => {
 app.use('/logonchk', logonchk);
 app.use('/jobs', jobsManagement);
 app.use('/company', company);
+app.use('/common', commonController);
 
 app.listen(port, '0.0.0.0', () => {
    console.log(`Server is up at port ${port}`);

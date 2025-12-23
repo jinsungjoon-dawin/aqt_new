@@ -20,10 +20,10 @@
 
     onMount(async () => {
         try {
-            const projectRes = await fetch(`${$rooturl}/jobs/project/list`);
+            const projectRes = await fetch(`${$rooturl}/common/project/list`);
             projects = await projectRes.json();
 
-            const jobRes = await fetch(`${$rooturl}/jobs/job/list`);
+            const jobRes = await fetch(`${$rooturl}/common/job/list`);
             jobs = await jobRes.json();
 
             const msgRes = await fetch(`${$rooturl}/jobs/message/list`, {

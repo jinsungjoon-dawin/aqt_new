@@ -54,10 +54,10 @@
     async function loadMetadata() {
         try {
             // 프로젝트/업무 목록 로딩
-            const pRes = await fetch($rooturl + "/jobs/project/list");
+            const pRes = await fetch($rooturl + "/common/project/list");
             projects = await pRes.json();
 
-            const jRes = await fetch($rooturl + "/jobs/job/list");
+            const jRes = await fetch($rooturl + "/common/job/list");
             jobs = await jRes.json();
 
             // 전문 목록 로딩

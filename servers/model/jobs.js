@@ -1,14 +1,5 @@
 import mondb from '../db/dbconn.js';
 
-// --- In-Memory Mock Data Storage ---
-// This data will reset when the server restarts.
-// In a real scenario, this would be database tables.
-
-let projects = [
-    { id: '1', name: '프로젝트 A' },
-    { id: '2', name: '프로젝트 B' }
-];
-
 let jobsData = [
     { id: '1', projectId: '1', name: '업무 1', jobGroupId: 'GRP001' },
     { id: '2', projectId: '1', name: '업무 2', jobGroupId: 'GRP001' },
@@ -64,8 +55,21 @@ const jobs = {
      * Get list of projects
      */
     getProjectList: async () => {
-        // Return structured clone to avoid reference issues
-        return JSON.parse(JSON.stringify(projects));
+        let conn;
+        try {
+            conn = await mondb.getConnection();
+            const rows = await conn.query("SELECT PRJ_ID, PRJ_NM FROM aqt_project_tb");
+            // Map database columns to expected object structure
+            return rows.map(row => ({
+                id: row.PRJ_ID.toString(),
+                name: row.PRJ_NM
+            }));
+        } catch (err) {
+            console.error("Error in getProjectList:", err);
+            throw err;
+        } finally {
+            if (conn) conn.release();
+        }
     },
 
     /**

@@ -35,10 +35,10 @@
 
     async function loadMetadata() {
         try {
-            const projectRes = await fetch($rooturl + "/jobs/project/list");
+            const projectRes = await fetch($rooturl + "/common/project/list");
             projects = await projectRes.json();
 
-            const jobRes = await fetch($rooturl + "/jobs/job/list");
+            const jobRes = await fetch($rooturl + "/common/job/list");
             jobs = await jobRes.json();
         } catch (error) {
             console.error("메타데이터 로딩 실패:", error);
@@ -554,7 +554,9 @@
                     >
                         <option value="">프로젝트 선택</option>
                         {#each projects as project}
-                            <option value={project.id}>{project.name}</option>
+                            <option value={project.PRJ_ID}
+                                >{project.PRJ_NM}</option
+                            >
                         {/each}
                     </select>
                 </div>
@@ -570,7 +572,7 @@
                     >
                         <option value="">업무 선택</option>
                         {#each filteredJobs as job}
-                            <option value={job.id}>{job.name}</option>
+                            <option value={job.PKEY}>{job.TARGET_SYS}</option>
                         {/each}
                     </select>
                 </div>
