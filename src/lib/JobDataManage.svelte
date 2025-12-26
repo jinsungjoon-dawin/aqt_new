@@ -2,68 +2,72 @@
     import { onMount } from "svelte";
     import { read, utils, writeFile } from "xlsx";
     import { rooturl } from "../aqtstore";
-
-    // 데이터 상태
+    // 프로젝트 목록 데이터
     let projects = [];
+    let projectSelectElement;
+    // 업무 목록 데이터
     let jobs = [];
+    let jobSelectElement;
     let messages = []; // 전문 목록
     let dataList = []; // 그리드 데이터
-    let dynamicColumns = []; // 동적 컬럼 목록
     let isLoading = false;
 
     // 필터 상태
     let selectedProject = "";
     let selectedJob = "";
     let selectedMessageId = "";
-    let filteredJobs = [];
     let filteredMessages = [];
 
     onMount(async () => {
         try {
-            const projectRes = await fetch(`${$rooturl}/common/project/list`);
-            projects = await projectRes.json();
-
-            const jobRes = await fetch(`${$rooturl}/common/job/list`);
-            jobs = await jobRes.json();
-
-            const msgRes = await fetch(`${$rooturl}/jobs/message/list`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
-            });
-            messages = await msgRes.json();
+            await searchProjects();
         } catch (error) {
             console.error("데이터 로딩 실패:", error);
         }
     });
 
-    // 프로젝트 선택 -> 업무 목록 필터링
-    $: {
-        filteredJobs = selectedProject
-            ? jobs.filter((j) => j.PRJ_ID === selectedProject)
-            : jobs;
-        // 프로젝트 변경 시 업무/전문 초기화
-        if (selectedJob && !filteredJobs.find((j) => j.id === selectedJob)) {
-            selectedJob = "";
+    // 프로젝트 목록 조회
+    async function searchProjects() {
+        try {
+            const projectRes = await fetch($rooturl + "/common/project/list");
+            projects = await projectRes.json();
+        } catch (error) {
+            console.error("프로젝트 목록 로딩 실패:", error);
         }
     }
 
-    // 업무 선택 -> 전문 목록 필터링
-    $: {
-        filteredMessages = selectedJob
-            ? messages.filter((m) => m.jobId === selectedJob)
-            : [];
-        // 업무 변경 시 전문 초기화
-        if (
-            selectedMessageId &&
-            !filteredMessages.find((m) => m.messageId === selectedMessageId)
-        ) {
-            selectedMessageId = "";
+    // 업무 목록 조회
+    async function searchJobs() {
+        selectedJob = "";
+        messages = [];
+        const queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
+        try {
+            const jobRes = await fetch(
+                $rooturl + "/common/job/list" + queryParams,
+            );
+            jobs = await jobRes.json();
+        } catch (error) {
+            console.error("업무 목록 로딩 실패:", error);
+        }
+    }
+
+    // 전문 목록 조회
+    async function searchMessages() {
+        let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
+        queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+
+        try {
+            const res = await fetch(
+                $rooturl + "/jobs/message/list" + queryParams,
+            );
+            messages = await res.json();
+        } catch (error) {
+            console.error("전문 목록 로딩 실패:", error);
         }
     }
 
     // 조회 함수
-    async function handleSearch() {
+    async function datsSearch() {
         if (!selectedMessageId) {
             alert("조회할 전문을 선택해주세요.");
             return;
@@ -71,35 +75,11 @@
 
         isLoading = true;
         try {
-            const res = await fetch(`${$rooturl}/jobs/data/list`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messageId: selectedMessageId }),
-            });
-            const data = await res.json();
-
-            // Clean/Transform data and infer columns
-            if (data.length > 0) {
-                const keys = new Set();
-                // Infer columns from all rows
-                data.forEach((row) => {
-                    if (row.dynamicData) {
-                        Object.keys(row.dynamicData).forEach((k) =>
-                            keys.add(k),
-                        );
-                    }
-                });
-                dynamicColumns = Array.from(keys);
-
-                // Map to internal format
-                dataList = data.map((d) => ({
-                    ...d,
-                    isChecked: false,
-                }));
-            } else {
-                dynamicColumns = [];
-                dataList = [];
-            }
+            let queryParams = selectedMessageId
+                ? `?mgs_id=${selectedMessageId}`
+                : "";
+            const res = await fetch(`${$rooturl}/jobs/data/list` + queryParams);
+            dataList = await res.json();
         } catch (error) {
             console.error("데이터 조회 실패:", error);
             dataList = [];
@@ -114,33 +94,23 @@
             alert("전문을 선택해주세요.");
             return;
         }
-        if (dynamicColumns.length === 0) {
-            // 컬럼 정보가 없으면 조회를 먼저 하도록 유도하거나 빈 컬럼으로 시작
-            // 여기서는 임의로 컬럼이 없으면 'NewField' 하나 생성
-            dynamicColumns = ["Field1"];
-        }
 
         const newRow = {
-            projectId: selectedProject,
-            projectName:
-                projects.find((p) => p.id === selectedProject)?.name || "",
-            // jobGroupId: "GRP_" + selectedJob, // Should get from message or job metadata really
-            jobGroupId:
-                messages.find((m) => m.messageId === selectedMessageId)
-                    ?.jobGroupId || "",
-            jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
-            messageId: selectedMessageId,
-            messageName:
-                filteredMessages.find((m) => m.messageId === selectedMessageId)
-                    ?.messageNameKr || "",
+            PRJ_ID: selectedProject, // Ensure PRJ_ID is present
+            APP_ID: selectedJob, // Add APP_ID for saving
+            MSG_ID: selectedMessageId, // Ensure MSG_ID is present
+            PRJ_NM: projectSelectElement?.selectedOptions[0]?.text || "",
+            // jobGroupId: "GRP_" + selectedJob,
+            APP_NM: jobs.find((j) => j.APP_ID === selectedJob)?.APPNM || "", // Fix to use correct property lookup
+            MSG_KR_NM:
+                filteredMessages.find((m) => m.MSG_ID === selectedMessageId)
+                    ?.MSG_KR_NM || "",
             isChecked: true,
             status: "N",
-            dynamicData: {},
+            content: "",
+            FIXEDLEN_VAL: "", // Init
+            COMMENT: "", // Init
         };
-
-        dynamicColumns.forEach((col) => {
-            newRow.dynamicData[col] = "";
-        });
 
         dataList = [...dataList, newRow];
     }
@@ -181,38 +151,38 @@
 
     // 저장
     async function handleSave() {
-        const target = dataList.filter(
-            (d) => d.isChecked || d.status === "N" || d.status === "U",
-        );
-        // Only save N or U items? Or checking means explicit save intent?
-        // Usually Save Action saves all dirty ('N', 'U') items or checked items.
-        // Let's filter by N or U for optimization, but user might check R and expect save? (Not in this logic)
-        // Let's stick to: Save items that are NEW or UPDATED.
-
-        const dirtyItems = dataList.filter(
+        const saveItems = dataList.filter(
             (d) => d.status === "N" || d.status === "U" || d.isChecked,
         );
-        // If the user checks an item, let's try to save it just in case.
 
-        if (dirtyItems.length === 0) {
+        if (saveItems.length === 0) {
             alert("저장할 변경사항이 없습니다.");
             return;
         }
 
-        try {
-            const res = await fetch(`${$rooturl}/jobs/data/save`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(dirtyItems),
-            });
-            const result = await res.json();
-            alert(`${result.count}건을 저장했습니다.`);
+        for (const item of saveItems) {
+            if (!item.FIXEDLEN_VAL || item.FIXEDLEN_VAL.trim() === "") {
+                alert("전문데이터는 필수 입력 항목입니다.");
+                return;
+            }
+        }
 
-            // Reload to get fresh state
-            handleSearch();
-        } catch (error) {
-            console.error("저장 실패:", error);
-            alert("저장 중 오류가 발생했습니다.");
+        if (confirm(`${saveItems.length}건을 저장하시겠습니까?`)) {
+            try {
+                const res = await fetch(`${$rooturl}/jobs/data/save`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(saveItems),
+                });
+                const result = await res.json();
+                alert(`${result.count}건을 저장했습니다.`);
+
+                // Reload to get fresh state
+                datsSearch();
+            } catch (error) {
+                console.error("저장 실패:", error);
+                alert("저장 중 오류가 발생했습니다.");
+            }
         }
     }
 
@@ -262,55 +232,34 @@
                 return;
             }
 
-            // Fixed Keys to ignore when identifying dynamic columns
-            // These match the keys used in handleExcelDownload
-            const fixedKeys = new Set([
-                "프로젝트 ID",
-                "프로젝트명",
-                "업무그룹 ID",
-                "c_target_sys_c(업무명)",
-                "전문 ID",
-                "전문 Name",
-                "__rowNum__",
-            ]);
-
-            // 1. Identify Dynamic Columns from Excel Headers
-            const excelKeys = Object.keys(jsonData[0]);
-            const newDynamicCols = excelKeys.filter((k) => !fixedKeys.has(k));
-
-            // 2. Update dynamicColumns: Add any new columns found in Excel
-            let updatedDynamicColumns = [...dynamicColumns];
-            newDynamicCols.forEach((col) => {
-                if (!updatedDynamicColumns.includes(col)) {
-                    updatedDynamicColumns.push(col);
-                }
-            });
-            dynamicColumns = updatedDynamicColumns;
-
             // 3. Map Excel rows to Data Objects
             const newRows = jsonData.map((row) => {
-                const dynamicData = {};
+                const prjId = row["프로젝트 ID"] || selectedProject;
+                const appId = row["업무 ID"] || selectedJob;
+                const msgId = row["전문 ID"] || selectedMessageId;
 
-                // Fill dynamic data (including new columns, default to empty if missing in row)
-                dynamicColumns.forEach((col) => {
-                    dynamicData[col] =
-                        row[col] !== undefined ? String(row[col]) : "";
-                });
+                const project = projects.find((p) => p.PRJ_ID === prjId);
+                const job = jobs.find((j) => j.APP_ID === appId);
+                const message =
+                    messages.find((m) => m.MSG_ID === msgId) ||
+                    (filteredMessages
+                        ? filteredMessages.find((m) => m.MSG_ID === msgId)
+                        : null);
 
                 return {
-                    projectId: selectedProject,
-                    projectName:
-                        projects.find((p) => p.id === selectedProject)?.name ||
-                        "",
-                    jobGroupId: "GRP_" + selectedJob,
-                    jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
-                    messageId: selectedMessageId,
-                    messageName:
-                        filteredMessages.find((m) => m.id === selectedMessageId)
-                            ?.name || "",
+                    PRJ_ID: prjId,
+                    PRJ_NM: project ? project.PRJ_NM : row["프로젝트명"] || "",
+                    APP_ID: appId,
+                    APP_NM: job ? job.APPNM : row["업무명"] || "",
+                    MSG_ID: msgId,
+                    MSG_KR_NM: message
+                        ? message.MSG_KR_NM
+                        : row["전문명"] || "",
+                    MSGDT_ID: "", // If empty, backend will generate
+                    FIXEDLEN_VAL: row["전문데이터"] || row["content"] || "",
+                    COMMENT: row["설명"] || row["comment"] || "",
                     isChecked: true,
-                    status: "N", // New status
-                    dynamicData: dynamicData,
+                    status: "N", // Treat imported as New
                 };
             });
 
@@ -329,18 +278,20 @@
         }
         // Flatten data for export
         const exportData = dataList.map((row) => {
+            const project = projects.find((p) => p.PRJ_ID === row.PRJ_ID);
+            const job = jobs.find((j) => j.APP_ID === row.APP_ID);
+
             const flat = {
-                "프로젝트 ID": row.projectId,
-                프로젝트명: row.projectName,
-                "업무그룹 ID": row.jobGroupId,
-                "c_target_sys_c(업무명)": row.jobName,
-                "전문 ID": row.messageId,
-                "전문 Name": row.messageName,
+                "프로젝트 ID": row.PRJ_ID,
+                프로젝트명: project ? project.PRJ_NM : row.PRJ_NM || "",
+                "업무 ID": row.APP_ID,
+                업무명: job ? job.APPNM : row.APP_NM || "",
+                "전문 ID": row.MSG_ID,
+                전문명: row.MSG_KR_NM,
+                전문데이터ID: row.MSGDT_ID,
+                전문데이터: row.FIXEDLEN_VAL,
+                설명: row.COMMENT,
             };
-            // Dynamic columns
-            dynamicColumns.forEach((col) => {
-                flat[col] = row.dynamicData[col];
-            });
             return flat;
         });
 
@@ -369,6 +320,8 @@
                     >
                     <select
                         bind:value={selectedProject}
+                        bind:this={projectSelectElement}
+                        on:change={searchJobs}
                         class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
                     >
                         <option value="">프로젝트 선택</option>
@@ -387,11 +340,13 @@
                     >
                     <select
                         bind:value={selectedJob}
+                        bind:this={jobSelectElement}
+                        on:change={searchMessages}
                         class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
                     >
                         <option value="">업무 선택</option>
-                        {#each filteredJobs as job}
-                            <option value={job.PKEY}>{job.TARGET_SYS}</option>
+                        {#each jobs as job}
+                            <option value={job.APP_ID}>{job.APPNM}</option>
                         {/each}
                     </select>
                 </div>
@@ -406,15 +361,15 @@
                         class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[150px]"
                     >
                         <option value="">전문 선택</option>
-                        {#each filteredMessages as msg}
-                            <option value={msg.id}>{msg.name}</option>
+                        {#each messages as msg}
+                            <option value={msg.MSG_ID}>{msg.MSG_KR_NM}</option>
                         {/each}
                     </select>
                 </div>
 
                 <div class="flex gap-1 ml-2">
                     <button
-                        on:click={handleSearch}
+                        on:click={datsSearch}
                         class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-3 py-1 text-xs rounded border border-blue-300 hover:border-blue-400 transition"
                     >
                         조회
@@ -471,7 +426,6 @@
                             checked={isAllChecked}
                         />
                     </th>
-                    <!-- Fixed Columns -->
                     <th
                         class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-10"
                         >상태</th
@@ -490,7 +444,7 @@
                     >
                     <th
                         class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                        >c_target_sys_c (업무명)</th
+                        >업무명</th
                     >
                     <th
                         class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
@@ -498,19 +452,19 @@
                     >
                     <th
                         class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                        >전문 Name</th
+                        >전문명</th
                     >
-
-                    <!-- Dynamic Columns -->
-                    {#each dynamicColumns as col}
-                        <th
-                            class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >{col}</th
-                        >
-                    {/each}
                     <th
-                        class="border-b border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                        >...</th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                        >전문데이터ID</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 min-w-[200px]"
+                        >전문데이터</th
+                    >
+                    <th
+                        class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 min-w-[150px]"
+                        >설명</th
                     >
                 </tr>
             </thead>
@@ -544,7 +498,6 @@
                                     bind:checked={row.isChecked}
                                 />
                             </td>
-                            <!-- Fixed Values -->
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center font-semibold {row.status ===
                                 'N'
@@ -557,43 +510,53 @@
                             </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{row.projectId}</td
+                                >{row.PRJ_ID || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{row.projectName}</td
+                                >{projects.find((p) => p.PRJ_ID == row.PRJ_ID)
+                                    ?.PRJ_NM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{row.jobGroupId}</td
+                                >{row.APP_ID || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{row.jobName}</td
+                                >{jobs.find((j) => j.APP_ID == row.APP_ID)
+                                    ?.APPNM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{row.messageId}</td
+                                >{row.MSG_ID || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{row.messageName}</td
+                                >{messages.find((m) => m.MSG_ID == row.MSG_ID)
+                                    ?.MSG_KR_NM || ""}</td
                             >
-
-                            <!-- Dynamic Values (Editable) -->
-                            {#each dynamicColumns as col}
-                                <td
-                                    class="border-r border-gray-200 px-2 py-1 text-center p-0"
-                                    contenteditable="true"
-                                    bind:textContent={row.dynamicData[col]}
-                                    on:input={() => {
-                                        if (row.status === "R")
-                                            row.status = "U";
-                                        row.isChecked = true;
-                                    }}
-                                ></td>
-                            {/each}
-                            <td class="border-r border-gray-200"></td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{row.MSGDT_ID || ""}</td
+                            >
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                contenteditable="true"
+                                bind:textContent={row.FIXEDLEN_VAL}
+                                on:input={() => {
+                                    if (row.status === "R") row.status = "U";
+                                    row.isChecked = true;
+                                }}
+                            ></td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                contenteditable="true"
+                                bind:textContent={row.COMMENT}
+                                on:input={() => {
+                                    if (row.status === "R") row.status = "U";
+                                    row.isChecked = true;
+                                }}
+                            ></td>
                         </tr>
                     {/each}
                 {/if}
@@ -609,11 +572,3 @@
         accept=".xlsx, .xls"
     />
 </div>
-
-<style>
-    /* Table Styling overrides if needed */
-    th,
-    td {
-        white-space: nowrap;
-    }
-</style>

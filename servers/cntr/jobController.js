@@ -74,9 +74,9 @@ router.post('/field/delete', async (req, res) => {
 /**
  * Data Management Routes
  */
-router.post('/data/list', async (req, res) => {
+router.get('/data/list', async (req, res) => {
     try {
-        const result = await jobModel.getDataList(req.body);
+        const result = await jobModel.getDataList(req.query);
         res.json(result);
     } catch (error) {
         console.error('Error fetching data list:', error);

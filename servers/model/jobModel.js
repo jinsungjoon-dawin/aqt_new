@@ -384,46 +384,157 @@ const jobs = {
 
     // --- Data Management (JobData) ---
 
-    getDataList: async (param) => {
-        // param: { messageId: "..." }
-        if (!param?.messageId) return [];
-        const result = jobDataInstances.filter(d => d.messageId === param.messageId);
-        return JSON.parse(JSON.stringify(result));
+    getDataList: async (req) => {
+        let conn = null;
+        try {
+            conn = await mondb.getConnection();
+            // User requested query:
+            // select A.MSG_ID, a.MSG_KR_NM, b.*
+            // from aqt_message_tb a
+            // left join aqt_messagedata_tb b on a.MSG_ID = b.MSG_ID 
+            // where 1=1 and a.MSG_ID = ?
+
+            const query = `
+                SELECT A.PRJ_ID
+                      ,A.APP_ID 
+                      ,A.MSG_ID
+                      ,A.MSG_KR_NM 
+                      ,B.PKEY
+                      ,B.MSGDT_ID
+                      ,B.FIXEDLEN_VAL
+                      ,B.COMMENT
+                FROM aqt_message_tb A
+                JOIN aqt_messagedata_tb B ON A.MSG_ID = B.MSG_ID 
+                WHERE 1=1
+                  AND A.MSG_ID = ?
+            `;
+            const rows = await conn.query(query, [req.mgs_id]);
+            return rows;
+        } catch (error) {
+            console.error('getDataList error:', error);
+            throw error;
+        } finally {
+            if (conn) conn.release();
+        }
     },
 
     saveData: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let savedCount = 0;
+        let conn;
 
-        inputList.forEach(inputData => {
-            if (!inputData.rowId) {
-                inputData.rowId = 'ROW' + Math.random().toString(36).substr(2, 9);
-            }
-            const index = jobDataInstances.findIndex(d => d.rowId === inputData.rowId);
+        try {
+            conn = await mondb.getConnection();
+            await conn.beginTransaction();
 
-            inputData.status = 'R';
-            if (index !== -1) {
-                jobDataInstances[index] = inputData;
-            } else {
-                jobDataInstances.push(inputData);
+            for (const item of inputList) {
+                // MSGDT_ID Generation (if missing or New) - Format: MDT + 11 digits
+                if (!item.MSGDT_ID || item.status === 'N') {
+                    const rows = await conn.query(
+                        `SELECT 
+                            LPAD(
+                                IFNULL(
+                                    MAX(CAST(SUBSTRING(MSGDT_ID, 4) AS UNSIGNED)), 
+                                    0
+                                ) + 1, 
+                                11, 
+                                '0'
+                            ) AS NEXT_SEQ 
+                         FROM aqt_messagedata_tb 
+                         WHERE PRJ_ID = ? AND APP_ID = ? AND MSG_ID = ?`,
+                        [item.PRJ_ID || item.projectId, item.APP_ID || item.jobId, item.MSG_ID || item.messageId]
+                    );
+                    item.MSGDT_ID = 'MDT' + (rows[0].NEXT_SEQ || '00000000001');
+                }
+
+                // Default nulls for optional fields to avoid undefined issues
+                const prjId = item.PRJ_ID || item.projectId;
+                const appId = item.APP_ID || item.jobId; // Frontend sends jobId/APP_ID as selectedJob
+                const msgId = item.MSG_ID || item.messageId;
+                // If the frontend doesn't send MSGFLD_ID, we default to a placeholder since it's part of the Unique Key
+                // unique key: PRJ_ID, APP_ID, MSG_ID, MSGFLD_ID, MSGDT_ID
+                // Actually MSGDT_ID is unique enough usually, but let's stick to schema. 
+                // We'll assume these are 'row' data not attached to specific field ID, so use a default.
+                const msgFldId = item.MSGFLD_ID || 'FLD00000000000';
+
+                const fixedLenVal = item.FIXEDLEN_VAL || item.content || '';
+                const comment = item.COMMENT || item.comment || '';
+
+                // MERGE Query
+                const query = `
+                    INSERT INTO aqt_messagedata_tb (
+                        PKEY, MSGDT_ID, PRJ_ID, APP_ID, MSG_ID, 
+                        MSGFLD_ID, FIXEDLEN_VAL, COMMENT,
+                        CRT_ID, CRT_DT, UDT_ID, UDT_DT
+                    ) VALUES (
+                        ?, ?, ?, ?, ?, 
+                        ?, ?, ?,
+                        'monadmin', SYSDATE(), 'monadmin', SYSDATE()
+                    ) ON DUPLICATE KEY UPDATE
+                        MSGDT_ID = VALUES(MSGDT_ID),
+                        PRJ_ID = VALUES(PRJ_ID),
+                        APP_ID = VALUES(APP_ID),
+                        MSG_ID = VALUES(MSG_ID),
+                        MSGFLD_ID = VALUES(MSGFLD_ID),
+                        FIXEDLEN_VAL = VALUES(FIXEDLEN_VAL),
+                        COMMENT = VALUES(COMMENT),
+                        UDT_ID = 'monadmin',
+                        UDT_DT = SYSDATE()
+                `;
+
+                const params = [
+                    item.PKEY || null,
+                    item.MSGDT_ID,
+                    prjId,
+                    appId,
+                    msgId,
+                    msgFldId,
+                    fixedLenVal,
+                    comment
+                ];
+
+                await conn.query(query, params);
+                savedCount++;
             }
-            savedCount++;
-        });
-        return { count: savedCount };
+
+            await conn.commit();
+            return { count: savedCount, message: "Message Data saved successfully" };
+
+        } catch (err) {
+            if (conn) await conn.rollback();
+            console.error("Error in saveData:", err);
+            throw err;
+        } finally {
+            if (conn) conn.release();
+        }
     },
 
     deleteData: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let deletedCount = 0;
+        let conn;
 
-        inputList.forEach(inputData => {
-            const index = jobDataInstances.findIndex(d => d.rowId === inputData.rowId);
-            if (index !== -1) {
-                jobDataInstances.splice(index, 1);
-                deletedCount++;
+        try {
+            conn = await mondb.getConnection();
+            await conn.beginTransaction();
+
+            for (const item of inputList) {
+                if (item.PKEY) {
+                    await conn.query(`DELETE FROM aqt_messagedata_tb WHERE PKEY = ?`, [item.PKEY]);
+                    deletedCount++;
+                }
             }
-        });
-        return { count: deletedCount };
+
+            await conn.commit();
+            return { count: deletedCount, message: "Message Data deleted successfully" };
+
+        } catch (err) {
+            if (conn) await conn.rollback();
+            console.error("Error in deleteData:", err);
+            throw err;
+        } finally {
+            if (conn) conn.release();
+        }
     }
 };
 
