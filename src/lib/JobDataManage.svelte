@@ -53,6 +53,8 @@
 
     // 전문 목록 조회
     async function searchMessages() {
+        selectedMessageId = ""; // Reset message selection
+        dataList = []; // Reset data grid
         let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
         queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
 
