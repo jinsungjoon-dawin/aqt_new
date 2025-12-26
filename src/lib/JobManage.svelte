@@ -11,12 +11,8 @@
     let jobs = [];
     let jobSelectElement;
 
-    let orign_projects = [];
-    let orign_jobs = [];
-
     // 전문 테이블 데이터 (메시지 목록)
     let messages = [];
-    let filteredMessageList = [];
 
     // 선택된 전문 상태
     let selectedMessage = null;
@@ -33,8 +29,6 @@
     // 필드 검색 조건
     let searchFieldType = "";
     let searchFieldKeyword = "";
-    let appliedFieldKeyword = "";
-    let appliedFieldType = "";
 
     // 컴포넌트 마운트 시 초기 데이터 로드
     onMount(async () => {
@@ -49,9 +43,6 @@
         try {
             const projectRes = await fetch($rooturl + "/common/project/list");
             projects = await projectRes.json();
-            if (!loadFlag) {
-                orign_projects = projects;
-            }
         } catch (error) {
             console.error("프로젝트 목록 로딩 실패:", error);
         }
@@ -66,9 +57,6 @@
                 $rooturl + "/common/job/list" + queryParams,
             );
             jobs = await jobRes.json();
-            if (!loadFlag) {
-                orign_jobs = jobs;
-            }
         } catch (error) {
             console.error("업무 목록 로딩 실패:", error);
         }
@@ -113,7 +101,6 @@
     // 전문 선택 핸들러 (필드 목록 로드)
     async function jobSelect(msg) {
         selectedMessage = msg;
-        searchFieldType = "";
         searchFieldKeyword = "";
 
         // Load fields for this message
@@ -148,27 +135,6 @@
     }
 
     // 신규 전문 추가 핸들러
-    function handleMessageAdd() {
-        // Logic to add a new empty row
-        const newMsg = {
-            PKEY: "",
-            PRJ_ID: selectedProject || "",
-            // projectName looked up in template
-            APP_ID: selectedJob || "", // PKEY
-            // jobName looked up in template
-            MSG_ID: "", // Empty for new
-            MSG_KR_NM: "",
-            MSG_EN_NM: "",
-            MSG_TYPE: "Q",
-            FORMAT_GB: "J",
-            DIREC_GB: "I",
-            TOT_LEN: "0",
-            COMMENT: "",
-            isChecked: true,
-            status: "N",
-        };
-        messages = [...messages, newMsg];
-    }
 
     // 전문 저장 핸들러
     async function handleMessageSave() {
@@ -199,6 +165,11 @@
             return;
         }
 
+        // Add confirmation dialog
+        if (!confirm("선택한 전문 정보를 저장하시겠습니까?")) {
+            return;
+        }
+
         try {
             const res = await fetch($rooturl + "/jobs/message/save", {
                 method: "POST",
@@ -215,40 +186,6 @@
     }
 
     // 전문 삭제 핸들러
-    async function handleMessageDelete() {
-        const checkedMessages = messages.filter((m) => m.isChecked);
-        if (checkedMessages.length === 0) {
-            alert("삭제할 전문을 선택해주세요.");
-            return;
-        }
-
-        if (!confirm(`${checkedMessages.length}건의 전문을 삭제하시겠습니까?`))
-            return;
-
-        try {
-            // Separate 'N' (just remove from list) and others (call API)
-
-            const persistedItems = checkedMessages.filter(
-                (m) => m.status !== "N",
-            );
-
-            if (persistedItems.length > 0) {
-                const res = await fetch($rooturl + "/jobs/message/delete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(persistedItems),
-                });
-                await res.json();
-            }
-
-            // Reload or Client-side update
-            alert("삭제되었습니다.");
-            await searchMessages();
-        } catch (error) {
-            console.error("전문 삭제 실패:", error);
-            alert("삭제 중 오류가 발생했습니다.");
-        }
-    }
 
     let messageListFileInput;
     let fieldListFileInput;
@@ -323,6 +260,15 @@
     // 필드 검색 반응형 업데이트 (Client-side filtering of loaded fields)
     // Server-side filtering, so filteredFieldList is just fieldList
     $: filteredFieldList = fieldList;
+
+    // 필드 변경 핸들러 (상태 업데이트)
+    function handleFieldChange(field) {
+        field.isChecked = true;
+        if (field.status !== "N" && field.status !== "D") {
+            field.status = "U";
+        }
+        fieldList = fieldList; // Svelte reactivity trigger
+    }
 
     // 필드 검색 트리거 핸들러
     function handleFieldSearchTrigger() {
@@ -465,6 +411,11 @@
                     ", ",
                 )}행에 필수 정보가 누락되었습니다.\n프로젝트ID, 업무그룹ID, 전문ID, 필드명(영문/한글)을 확인해주세요.`,
             );
+            return;
+        }
+
+        // Add confirmation dialog
+        if (!confirm("선택한 필드 정보를 저장하시겠습니까?")) {
             return;
         }
 
@@ -1217,20 +1168,20 @@
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
                                 bind:textContent={field.FLD_EN_NM}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
                                 bind:textContent={field.FLD_KR_NM}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
                                     bind:value={field.FLD_TYPE}
-                                    on:change={() => (field.isChecked = true)}
+                                    on:change={() => handleFieldChange(field)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
                                     <option value="STRING">STRING</option>
@@ -1243,7 +1194,7 @@
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
                                 bind:textContent={field.FLD_CMT}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
@@ -1266,6 +1217,7 @@
                                         sel.removeAllRanges();
                                         sel.addRange(range);
                                     }
+                                    handleFieldChange(field);
                                 }}
                             ></td>
                             <td
@@ -1289,6 +1241,7 @@
                                         sel.removeAllRanges();
                                         sel.addRange(range);
                                     }
+                                    handleFieldChange(field);
                                 }}
                             ></td>
                             <td
@@ -1312,6 +1265,7 @@
                                         sel.removeAllRanges();
                                         sel.addRange(range);
                                     }
+                                    handleFieldChange(field);
                                 }}
                             ></td>
                             <td
@@ -1335,6 +1289,7 @@
                                         sel.removeAllRanges();
                                         sel.addRange(range);
                                     }
+                                    handleFieldChange(field);
                                 }}
                             ></td>
                             <td
@@ -1346,7 +1301,7 @@
                                     value={field.FLD_ORDER}
                                     on:input={(e) => {
                                         field.FLD_ORDER = e.currentTarget.value;
-                                        field.isChecked = true;
+                                        handleFieldChange(field);
                                     }}
                                 />
                             </td>
@@ -1355,7 +1310,7 @@
                             >
                                 <select
                                     bind:value={field.ESSEN_YN}
-                                    on:change={() => (field.isChecked = true)}
+                                    on:change={() => handleFieldChange(field)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
                                     <option value="Y">Y</option>
@@ -1366,26 +1321,26 @@
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
                                 bind:textContent={field.DEFAULT_VAL}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
                                 bind:textContent={field.FLD_FORMAT}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
                                 bind:textContent={field.FLD_CDSET}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
                                     bind:value={field.MASK_YN}
-                                    on:change={() => (field.isChecked = true)}
+                                    on:change={() => handleFieldChange(field)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
                                     <option value="Y">Y</option>
@@ -1396,7 +1351,7 @@
                                 class="px-2 py-1 text-left"
                                 contenteditable="true"
                                 bind:textContent={field.META_CONV_RULE}
-                                on:input={() => (field.isChecked = true)}
+                                on:input={() => handleFieldChange(field)}
                             ></td>
                         </tr>
                     {/each}
