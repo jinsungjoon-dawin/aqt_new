@@ -1,24 +1,15 @@
 import express from 'express';
-import jobs from '../model/jobs.js';
+import jobModel from '../model/jobModel.js';
 
 const router = express.Router();
 
-router.get('/job/list', async (req, res) => {
-    try {
-        const result = await jobs.getJobList();
-        res.json(result);
-    } catch (error) {
-        console.error('Error fetching job list:', error);
-        res.status(500).json({ message: 'Error fetching job list', error: error.message });
-    }
-});
 
 /**
  * Message Management Routes
  */
-router.post('/message/list', async (req, res) => {
+router.get('/message/list', async (req, res) => {
     try {
-        const result = await jobs.getMessageList(req.body);
+        const result = await jobModel.getMessageList(req.query);
         res.json(result);
     } catch (error) {
         console.error('Error fetching message list:', error);
@@ -26,9 +17,10 @@ router.post('/message/list', async (req, res) => {
     }
 });
 
+
 router.post('/message/save', async (req, res) => {
     try {
-        const result = await jobs.saveMessage(req.body);
+        const result = await jobModel.saveMessage(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error saving message:', error);
@@ -38,7 +30,7 @@ router.post('/message/save', async (req, res) => {
 
 router.post('/message/delete', async (req, res) => {
     try {
-        const result = await jobs.deleteMessage(req.body);
+        const result = await jobModel.deleteMessage(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error deleting message:', error);
@@ -49,9 +41,9 @@ router.post('/message/delete', async (req, res) => {
 /**
  * Field Management Routes
  */
-router.post('/field/list', async (req, res) => {
+router.get('/field/list', async (req, res) => {
     try {
-        const result = await jobs.getFieldList(req.body);
+        const result = await jobModel.getFieldList(req.query);
         res.json(result);
     } catch (error) {
         console.error('Error fetching field list:', error);
@@ -61,7 +53,7 @@ router.post('/field/list', async (req, res) => {
 
 router.post('/field/save', async (req, res) => {
     try {
-        const result = await jobs.saveField(req.body);
+        const result = await jobModel.saveField(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error saving field:', error);
@@ -71,7 +63,7 @@ router.post('/field/save', async (req, res) => {
 
 router.post('/field/delete', async (req, res) => {
     try {
-        const result = await jobs.deleteField(req.body);
+        const result = await jobModel.deleteField(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error deleting field:', error);
@@ -84,7 +76,7 @@ router.post('/field/delete', async (req, res) => {
  */
 router.post('/data/list', async (req, res) => {
     try {
-        const result = await jobs.getDataList(req.body);
+        const result = await jobModel.getDataList(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error fetching data list:', error);
@@ -94,7 +86,7 @@ router.post('/data/list', async (req, res) => {
 
 router.post('/data/save', async (req, res) => {
     try {
-        const result = await jobs.saveData(req.body);
+        const result = await jobModel.saveData(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error saving data:', error);
@@ -104,7 +96,7 @@ router.post('/data/save', async (req, res) => {
 
 router.post('/data/delete', async (req, res) => {
     try {
-        const result = await jobs.deleteData(req.body);
+        const result = await jobModel.deleteData(req.body);
         res.json(result);
     } catch (error) {
         console.error('Error deleting data:', error);

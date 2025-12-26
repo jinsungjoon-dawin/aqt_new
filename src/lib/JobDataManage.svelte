@@ -40,7 +40,7 @@
     // 프로젝트 선택 -> 업무 목록 필터링
     $: {
         filteredJobs = selectedProject
-            ? jobs.filter((j) => j.projectId === selectedProject)
+            ? jobs.filter((j) => j.PRJ_ID === selectedProject)
             : jobs;
         // 프로젝트 변경 시 업무/전문 초기화
         if (selectedJob && !filteredJobs.find((j) => j.id === selectedJob)) {
@@ -373,7 +373,9 @@
                     >
                         <option value="">프로젝트 선택</option>
                         {#each projects as project}
-                            <option value={project.id}>{project.name}</option>
+                            <option value={project.PRJ_ID}
+                                >{project.PRJ_NM}</option
+                            >
                         {/each}
                     </select>
                 </div>
@@ -389,7 +391,7 @@
                     >
                         <option value="">업무 선택</option>
                         {#each filteredJobs as job}
-                            <option value={job.id}>{job.name}</option>
+                            <option value={job.PKEY}>{job.TARGET_SYS}</option>
                         {/each}
                     </select>
                 </div>

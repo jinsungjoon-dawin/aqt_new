@@ -32,7 +32,7 @@
     // --- Reactive Filters ---
     $: {
         filteredJobs = selectedProject
-            ? jobs.filter((j) => j.projectId === selectedProject)
+            ? jobs.filter((j) => j.PRJ_ID === selectedProject)
             : jobs;
         if (selectedJob && !filteredJobs.find((j) => j.id === selectedJob)) {
             selectedJob = "";
@@ -242,7 +242,7 @@
             >
                 <option value="">프로젝트 선택</option>
                 {#each projects as project}
-                    <option value={project.id}>{project.name}</option>
+                    <option value={project.PRJ_ID}>{project.PRJ_NM}</option>
                 {/each}
             </select>
         </div>
@@ -256,7 +256,7 @@
             >
                 <option value="">업무 선택</option>
                 {#each filteredJobs as job}
-                    <option value={job.id}>{job.name}</option>
+                    <option value={job.PKEY}>{job.TARGET_SYS}</option>
                 {/each}
             </select>
         </div>

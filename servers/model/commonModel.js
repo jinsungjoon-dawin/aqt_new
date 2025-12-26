@@ -30,9 +30,6 @@ const commonModel = {
 
     /**
      * 업무 목록 조회
-     */
-    /**
-     * 업무 목록 조회
      * @param {Object} req - Express request object
      */
     getJobList: async (req) => {
@@ -40,7 +37,7 @@ const commonModel = {
         try {
             conn = await mondb.getConnection();
 
-            let query = `SELECT PKEY, APP_ID, PRJ_ID, TARGET_SYS, APPLICATION, MODULE, OVOV_ID, OVOV_GROUP, MAIN_MGR, HOST_IP, HOST_PORT, SVC_URI, SVC_KR_NM, SVC_EN_NM, SVC_KIND
+            let query = `SELECT PKEY, APP_ID, PRJ_ID, APPNM, MAIN_MGR, GUBUN, SCNT, HOST_IP, HOST_PORT, SVC_URI, SVC_KR_NM, SVC_EN_NM, SVC_KIND, CUMCNT, CRT_ID, CRT_DT, UDT_ID, UDT_DT
                          FROM aqt_business_tb
                          WHERE 1=1`;
 
@@ -62,6 +59,8 @@ const commonModel = {
             if (conn) conn.release();
         }
     },
+
+
 
 };
 

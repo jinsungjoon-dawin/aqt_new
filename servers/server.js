@@ -4,7 +4,7 @@ import path from 'path';
 import { notFound, errorHandler } from './middle/errors.js';
 import { fileURLToPath } from "url";
 import logonchk from './cntr/logonchk.js';
-import jobsManagement from './cntr/jobsManagement.js'
+import jobController from './cntr/jobController.js'
 import commonController from './cntr/commonController.js'
 import company from './cntr/company.js'
 
@@ -34,7 +34,7 @@ app.get('/', (req, res) => {
 });
 
 app.use('/logonchk', logonchk);
-app.use('/jobs', jobsManagement);
+app.use('/jobs', jobController);
 app.use('/company', company);
 app.use('/common', commonController);
 

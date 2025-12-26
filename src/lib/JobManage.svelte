@@ -3,12 +3,19 @@
     import { rooturl } from "../aqtstore";
     import { read, utils, writeFile } from "xlsx";
 
-    // 프로젝트 및 업무 목록 데이터
+    let loadFlag = false; //화면 로드 구분
+    // 프로젝트 목록 데이터
     let projects = [];
+    let projectSelectElement;
+    // 업무 목록 데이터
     let jobs = [];
+    let jobSelectElement;
 
-    // 전문 테이블 데이터
-    let allMessageList = [];
+    let orign_projects = [];
+    let orign_jobs = [];
+
+    // 전문 테이블 데이터 (메시지 목록)
+    let messages = [];
     let filteredMessageList = [];
 
     // 선택된 전문 상태
@@ -16,86 +23,123 @@
 
     // 전문 필드 데이터
     let fieldList = [];
-    let allFieldList = []; // If we want to keep a cache, or just use fieldList for current message
 
     // Search Filters
+    // 검색 필터 (프로젝트 및 업무 선택)
     let selectedProject = "";
     let selectedJob = "";
 
     // Field Search
+    // 필드 검색 조건
     let searchFieldType = "";
     let searchFieldKeyword = "";
     let appliedFieldKeyword = "";
     let appliedFieldType = "";
 
+    // 컴포넌트 마운트 시 초기 데이터 로드
     onMount(async () => {
-        await loadMetadata();
-        await loadMessages();
+        await searchProjects();
+        await searchJobs();
+        loadFlag = true;
+        // await searchMessages();
     });
 
-    async function loadMetadata() {
+    // 프로젝트 목록 조회
+    async function searchProjects() {
         try {
             const projectRes = await fetch($rooturl + "/common/project/list");
             projects = await projectRes.json();
-
-            const jobRes = await fetch($rooturl + "/common/job/list");
-            jobs = await jobRes.json();
+            if (!loadFlag) {
+                orign_projects = projects;
+            }
         } catch (error) {
-            console.error("메타데이터 로딩 실패:", error);
+            console.error("프로젝트 목록 로딩 실패:", error);
         }
     }
 
-    async function loadMessages() {
+    // 업무 목록 조회
+    async function searchJobs() {
+        selectedJob = "";
+        const queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
         try {
-            const res = await fetch($rooturl + "/jobs/message/list", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
-            });
-            allMessageList = await res.json();
-            jobSearch(); // Apply filters
+            const jobRes = await fetch(
+                $rooturl + "/common/job/list" + queryParams,
+            );
+            jobs = await jobRes.json();
+            if (!loadFlag) {
+                orign_jobs = jobs;
+            }
+        } catch (error) {
+            console.error("업무 목록 로딩 실패:", error);
+        }
+    }
+
+    // 전문 목록 조회
+    async function searchMessages() {
+        if (!selectedProject) {
+            alert("프로젝트를 선택해주세요.");
+            projectSelectElement.focus();
+            return;
+        }
+        // if (!selectedJob) {
+        //     alert("업무를 선택해주세요.");
+        //     jobSelectElement.focus();
+        //     return;
+        // }
+
+        let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
+        queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+
+        try {
+            const res = await fetch(
+                $rooturl + "/jobs/message/list" + queryParams,
+            );
+            messages = await res.json();
         } catch (error) {
             console.error("전문 목록 로딩 실패:", error);
         }
     }
 
     // 선택된 프로젝트에 따라 업무 목록 필터링
-    let filteredJobs = [];
-    $: filteredJobs = selectedProject
-        ? jobs.filter((j) => j.projectId === selectedProject)
-        : jobs;
 
-    function jobSearch() {
-        filteredMessageList = allMessageList.filter((msg) => {
-            let matchesProject = selectedProject
-                ? msg.projectId === selectedProject
-                : true;
-            let matchesJob = selectedJob
-                ? msg.jobId === selectedJob // Changed to match backend model (jobId)
-                : true;
-            return matchesProject && matchesJob;
-        });
-        selectedMessage = null; // 조회 시 선택 상태 초기화
-        fieldList = [];
+    // 전문 변경 핸들러 (상태 업데이트)
+    function handleMessageChange(msg) {
+        msg.isChecked = true;
+        if (msg.status !== "N" && msg.status !== "D") {
+            msg.status = "U";
+        }
     }
 
+    // 전문 선택 핸들러 (필드 목록 로드)
     async function jobSelect(msg) {
         selectedMessage = msg;
         searchFieldType = "";
         searchFieldKeyword = "";
 
         // Load fields for this message
-        await loadFields(msg.messageId);
+        await searchFields(msg);
     }
 
-    async function loadFields(messageId) {
+    // 필드 목록 조회 함수
+    async function searchFields(msg) {
+        if (!msg.MSG_ID) return;
         try {
-            const res = await fetch($rooturl + "/jobs/field/list", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messageId }),
-            });
-            fieldList = await res.json();
+            let queryParams = selectedProject
+                ? `?prj_id=${selectedProject}`
+                : "";
+            queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+            queryParams += msg ? `&message_id=${msg.MSG_ID}` : "";
+
+            // Add search keyword
+            if (searchFieldKeyword) {
+                queryParams += `&search_keyword=${searchFieldKeyword}`;
+            }
+
+            const res = await fetch(
+                $rooturl + "/jobs/field/list" + queryParams,
+            );
+            const data = await res.json();
+            fieldList = Array.isArray(data) ? data : [];
             // Reset checked status or other UI states if needed
         } catch (error) {
             console.error("필드 목록 로딩 실패:", error);
@@ -103,45 +147,55 @@
         }
     }
 
+    // 신규 전문 추가 핸들러
     function handleMessageAdd() {
         // Logic to add a new empty row
         const newMsg = {
-            projectId: selectedProject || "",
-            projectName:
-                projects.find((p) => p.id === selectedProject)?.name || "",
-            jobGroupId: "GRP" + (selectedJob || "000"), // Simple mock logic
-            jobName: jobs.find((j) => j.id === selectedJob)?.name || "",
-            jobId: selectedJob || "",
-            messageId: "", // Empty for new
-            messageNameKr: "",
-            messageNameEn: "",
-            messageType: "요청",
-            format: "JSON",
-            direction: "IN",
-            totalLength: "0",
-            description: "",
+            PKEY: "",
+            PRJ_ID: selectedProject || "",
+            // projectName looked up in template
+            APP_ID: selectedJob || "", // PKEY
+            // jobName looked up in template
+            MSG_ID: "", // Empty for new
+            MSG_KR_NM: "",
+            MSG_EN_NM: "",
+            MSG_TYPE: "Q",
+            FORMAT_GB: "J",
+            DIREC_GB: "I",
+            TOT_LEN: "0",
+            COMMENT: "",
             isChecked: true,
             status: "N",
         };
-        allMessageList = [...allMessageList, newMsg];
-        jobSearch();
+        messages = [...messages, newMsg];
     }
 
+    // 전문 저장 핸들러
     async function handleMessageSave() {
-        const checkedMessages = filteredMessageList.filter((m) => m.isChecked);
+        const checkedMessages = messages.filter((m) => m.isChecked);
         if (checkedMessages.length === 0) {
             alert("저장할 전문을 선택해주세요.");
             return;
         }
 
-        // 유효성 검사
-        const invalidMessages = checkedMessages.filter(
-            (m) => !m.projectId || !m.jobId,
-            // Add other mandatory checks
-        );
+        // 유효성 검사 (행 번호 포함)
+        const errorRows = [];
+        messages.forEach((m, index) => {
+            if (m.isChecked) {
+                const hasProject = projects.some((p) => p.PRJ_ID == m.PRJ_ID);
+                const hasJob = jobs.some((j) => j.APP_ID == m.APP_ID);
+                if (!m.PRJ_ID || !m.APP_ID || !hasProject || !hasJob) {
+                    errorRows.push(index + 1); // 1-based index
+                }
+            }
+        });
 
-        if (invalidMessages.length > 0) {
-            alert("필수 항목(프로젝트, 업무 등)이 누락된 항목이 있습니다.");
+        if (errorRows.length > 0) {
+            alert(
+                `${errorRows.join(
+                    ", ",
+                )}행에 프로젝트명 또는 업무명이 없습니다.\n프로젝트ID, 업무ID를 확인해주세요.`,
+            );
             return;
         }
 
@@ -153,15 +207,16 @@
             });
             const result = await res.json();
             alert(`${result.count}건의 전문이 저장되었습니다.`);
-            await loadMessages(); // Reload to get generated IDs and clean status
+            await searchMessages(); // Reload to get generated IDs and clean status
         } catch (error) {
             console.error("전문 저장 실패:", error);
             alert("저장 중 오류가 발생했습니다.");
         }
     }
 
+    // 전문 삭제 핸들러
     async function handleMessageDelete() {
-        const checkedMessages = filteredMessageList.filter((m) => m.isChecked);
+        const checkedMessages = messages.filter((m) => m.isChecked);
         if (checkedMessages.length === 0) {
             alert("삭제할 전문을 선택해주세요.");
             return;
@@ -172,7 +227,7 @@
 
         try {
             // Separate 'N' (just remove from list) and others (call API)
-            const newItems = checkedMessages.filter((m) => m.status === "N");
+
             const persistedItems = checkedMessages.filter(
                 (m) => m.status !== "N",
             );
@@ -188,7 +243,7 @@
 
             // Reload or Client-side update
             alert("삭제되었습니다.");
-            await loadMessages();
+            await searchMessages();
         } catch (error) {
             console.error("전문 삭제 실패:", error);
             alert("삭제 중 오류가 발생했습니다.");
@@ -198,10 +253,12 @@
     let messageListFileInput;
     let fieldListFileInput;
 
+    // 엑셀 업로드 핸들러 (파일 선택창 열기)
     function handleExcelUpload() {
         messageListFileInput.click();
     }
 
+    // 엑셀 파일 선택 시 처리 핸들러
     function handleMessageListFileChange(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -215,54 +272,45 @@
             const jsonData = utils.sheet_to_json(worksheet);
 
             const newMessages = jsonData.map((row) => ({
-                projectId: row["프로젝트 ID"] || "",
-                projectName: row["프로젝트명"] || "",
-                jobGroupId: row["업무그룹ID"] || "",
-                jobName: row["c_target_sys_c(업무명)"] || "",
-                messageId: "", // 업로드 시 PK이므로 항상 비워둠
-                messageNameKr: row["전문명(한글)"] || "",
-                messageNameEn: row["전문명(영문)"] || "",
-                messageType: ["요청", "응답"].includes(row["전문유형"])
-                    ? row["전문유형"]
-                    : "요청",
-                format: ["JSON", "XML", "FIXED"].includes(row["포맷"])
-                    ? row["포맷"]
-                    : "JSON",
-                direction: ["IN", "OUT"].includes(row["방향"])
-                    ? row["방향"]
-                    : "IN",
-                totalLength: String(row["전체길이"] || "0").replace(
-                    /[^0-9]/g,
-                    "",
-                ), // 숫자만 허용
-                description: row["설명"] || "",
+                PKEY: "",
+                PRJ_ID: row["프로젝트 ID"] || "",
+                APP_ID: row["업무그룹ID"] || "",
+                MSG_ID: "", // 업로드 시 PK이므로 항상 비워둠 (row["전문ID"] ignored for new insert)
+                MSG_KR_NM: row["전문명(한글)"] || "",
+                MSG_EN_NM: row["전문명(영문)"] || "",
+                MSG_TYPE: row["전문유형"] || "",
+                FORMAT_GB: row["포맷"] || "",
+                DIREC_GB: row["방향"] || "",
+                TOT_LEN: String(row["전체길이"] || "0").replace(/[^0-9]/g, ""), // 숫자만 허용
+                COMMENT: row["설명"] || "",
                 isChecked: true,
                 status: "N", // New
             }));
 
-            allMessageList = [...allMessageList, ...newMessages];
-            jobSearch(); // Refresh filtered list
+            messages = [...messages, ...newMessages];
             alert(`${newMessages.length}건의 전문이 업로드되었습니다.`);
             messageListFileInput.value = ""; // Reset input
         };
         reader.readAsArrayBuffer(file);
     }
 
+    // 엑셀 다운로드 핸들러
     function handleExcelDownload() {
         const ws = utils.json_to_sheet(
-            filteredMessageList.map((msg) => ({
-                "프로젝트 ID": msg.projectId,
-                프로젝트명: msg.projectName,
-                업무그룹ID: msg.jobGroupId,
-                "c_target_sys_c(업무명)": msg.jobName,
-                전문ID: msg.messageId,
-                "전문명(한글)": msg.messageNameKr,
-                "전문명(영문)": msg.messageNameEn,
-                전문유형: msg.messageType,
-                포맷: msg.format,
-                방향: msg.direction,
-                전체길이: msg.totalLength,
-                설명: msg.description,
+            messages.map((msg) => ({
+                "프로젝트 ID": msg.PRJ_ID,
+                프로젝트명:
+                    projects.find((p) => p.PRJ_ID == msg.PRJ_ID)?.PRJ_NM || "",
+                업무그룹ID: msg.APP_ID,
+                업무그룹명: msg.APPNM || "",
+                전문ID: msg.MSG_ID,
+                "전문명(한글)": msg.MSG_KR_NM,
+                "전문명(영문)": msg.MSG_EN_NM,
+                전문유형: msg.MSG_TYPE,
+                포맷: msg.FORMAT_GB,
+                방향: msg.DIREC_GB,
+                전체길이: msg.TOT_LEN,
+                설명: msg.COMMENT,
             })),
         );
         const wb = utils.book_new();
@@ -273,28 +321,16 @@
     // --- Field Logic ---
 
     // 필드 검색 반응형 업데이트 (Client-side filtering of loaded fields)
-    let filteredFieldList = [];
-    $: {
-        if (appliedFieldType && appliedFieldKeyword) {
-            filteredFieldList = fieldList.filter((field) => {
-                if (appliedFieldType === "fieldName") {
-                    return (
-                        (field.fieldNameKor &&
-                            field.fieldNameKor.includes(appliedFieldKeyword)) ||
-                        (field.fieldNameEng &&
-                            field.fieldNameEng.includes(appliedFieldKeyword))
-                    );
-                }
-                return true;
-            });
-        } else {
-            filteredFieldList = fieldList;
-        }
-    }
+    // Server-side filtering, so filteredFieldList is just fieldList
+    $: filteredFieldList = fieldList;
 
+    // 필드 검색 트리거 핸들러
     function handleFieldSearchTrigger() {
-        appliedFieldType = searchFieldType;
-        appliedFieldKeyword = searchFieldKeyword;
+        if (selectedMessage) {
+            searchFields(selectedMessage);
+        } else {
+            alert("전문을 선택해주세요.");
+        }
     }
 
     // 필드 전체 선택/해제
@@ -305,37 +341,50 @@
         isAllFieldsChecked = false;
     }
 
+    // 필드 전체 선택/해제 토글 핸들러
     function toggleAllFields(e) {
         const checked = e.target.checked;
         isAllFieldsChecked = checked;
         fieldList = fieldList.map((f) => ({ ...f, isChecked: checked }));
     }
 
+    // 신규 필드 추가 핸들러
     function handleFieldAdd() {
         if (!selectedMessage) {
-            alert("먼저 전문을 선택해주세요.");
+            alert("전문을 선택해주세요.");
+            return;
+        }
+        if (!selectedMessage.MSG_ID) {
+            alert(
+                "전문ID가 없습니다. \n전문을 다시 선택하거나 전문 등록후 진행해 주세요.",
+            );
             return;
         }
 
+        if (!Array.isArray(fieldList)) {
+            fieldList = [];
+        }
+
         const newField = {
-            projectId: selectedMessage.projectId,
-            messageId: selectedMessage.messageId,
-            fieldId: "",
-            fieldNameEng: "",
-            fieldNameKor: "",
-            fieldType: "STRING",
-            fieldLength: "0",
-            fieldDesc: "",
-            segment: "Root",
-            startPos: "0",
-            loopCount: "1",
-            order: (fieldList.length + 1).toString(),
-            mandatory: "N",
-            defaultValue: "",
-            formatPattern: "",
-            codeSet: "",
-            masking: "N",
-            remarks: "",
+            PRJ_ID: selectedMessage.PRJ_ID,
+            APP_ID: selectedMessage.APP_ID,
+            MSG_ID: selectedMessage.MSG_ID,
+            MSGFLD_ID: "",
+            FLD_EN_NM: "",
+            FLD_KR_NM: "",
+            FLD_TYPE: "STRING",
+            FLD_LEN: "0",
+            FLD_CMT: "",
+            FLD_SGMT: "0",
+            ST_POS: "0",
+            REPET_NUM: "1",
+            FLD_ORDER: (fieldList.length + 1).toString(),
+            ESSEN_YN: "N",
+            DEFAULT_VAL: "",
+            FLD_FORMAT: "",
+            FLD_CDSET: "",
+            MASK_YN: "N",
+            META_CONV_RULE: "",
             isChecked: true,
             status: "N", // New
         };
@@ -343,6 +392,7 @@
         fieldList = [...fieldList, newField];
     }
 
+    // 필드 삭제 핸들러
     async function handleFieldDelete() {
         if (!selectedMessage) return;
 
@@ -356,7 +406,6 @@
             return;
 
         try {
-            const newItems = checkedFields.filter((f) => f.status === "N");
             const persistedItems = checkedFields.filter(
                 (f) => f.status !== "N",
             );
@@ -370,13 +419,14 @@
             }
 
             alert("삭제되었습니다.");
-            await loadFields(selectedMessage.messageId);
+            await searchFields(selectedMessage);
         } catch (error) {
             console.error("필드 삭제 실패:", error);
             alert("삭제 중 오류가 발생했습니다.");
         }
     }
 
+    // 필드 저장 핸들러
     async function handleFieldSave() {
         if (!selectedMessage) return;
 
@@ -386,21 +436,37 @@
             return;
         }
 
-        // 중복 검사 (Simple client-side check)
-        const duplicateNames = new Set();
-        const seenNames = new Set();
-        // Check only within the current list (including existing)
-        fieldList.forEach((f) => {
-            if (f.status === "D") return; // Skip deleted
-            if (f.fieldNameEng && seenNames.has(f.fieldNameEng)) {
-                duplicateNames.add(f.fieldNameEng);
+        // 유효성 검사 (행 번호 포함)
+        const errorRows = [];
+        fieldList.forEach((f, index) => {
+            if (f.isChecked) {
+                // const hasProject = projects.some((p) => p.PRJ_ID == f.PRJ_ID);
+                // const hasJob = jobs.some((j) => j.APP_ID == f.APP_ID);
+                // const hasMessage = messages.some((m) => m.MSG_ID == f.MSG_ID);
+
+                if (
+                    // !f.PRJ_ID ||
+                    // !f.APP_ID ||
+                    // !f.MSG_ID ||
+                    // !hasProject ||
+                    // !hasJob ||
+                    // !hasMessage ||
+                    !f.FLD_EN_NM ||
+                    !f.FLD_KR_NM
+                ) {
+                    errorRows.push(index + 1); // 1-based index
+                }
             }
-            if (f.fieldNameEng) seenNames.add(f.fieldNameEng);
         });
 
-        // This simple check might be too aggressive if 'save' only sends checked ones but validation checks all.
-        // Let's assume server validation handles robust unique checks, or simple check here.
-        // For now, proceed.
+        if (errorRows.length > 0) {
+            alert(
+                `${errorRows.join(
+                    ", ",
+                )}행에 필수 정보가 누락되었습니다.\n프로젝트ID, 업무그룹ID, 전문ID, 필드명(영문/한글)을 확인해주세요.`,
+            );
+            return;
+        }
 
         try {
             const res = await fetch($rooturl + "/jobs/field/save", {
@@ -410,19 +476,68 @@
             });
             const result = await res.json();
             alert(`${result.count}건의 필드가 저장되었습니다.`);
-            await loadFields(selectedMessage.messageId);
+            await searchFields(selectedMessage);
         } catch (error) {
             console.error("필드 저장 실패:", error);
             alert("저장 중 오류가 발생했습니다.");
         }
     }
 
+    // 필드 엑셀 업로드 핸들러
     function handleFieldExcelUpload() {
         if (!selectedMessage) {
             alert("먼저 전문을 선택해주세요.");
             return;
         }
         fieldListFileInput.click();
+    }
+
+    // 필드 엑셀 다운로드 핸들러
+    function handleFieldExcelDownload() {
+        if (!selectedMessage) {
+            alert("먼저 전문을 선택해주세요.");
+            return;
+        }
+        if (filteredFieldList.length === 0) {
+            alert("다운로드할 데이터가 없습니다.");
+            return;
+        }
+
+        const project = projects.find(
+            (p) => p.PRJ_ID == selectedMessage.PRJ_ID,
+        );
+        const job = jobs.find((j) => j.APP_ID == selectedMessage.APP_ID);
+        const msg = messages.find((m) => m.MSG_ID == selectedMessage.MSG_ID);
+
+        const dataToExport = filteredFieldList.map((field) => ({
+            "프로젝트 ID": field.PRJ_ID,
+            프로젝트명: project ? project.PRJ_NM : "",
+            업무그룹ID: field.APP_ID,
+            전문ID: field.MSG_ID,
+            전문명: msg ? msg.MSG_KR_NM : "",
+            전문필드ID: field.MSGFLD_ID,
+            "필드명(영문)": field.FLD_EN_NM,
+            "필드명(한글)": field.FLD_KR_NM,
+            필드타입: field.FLD_TYPE,
+            필드자리수: "", // FLD_LEN과 중복 혹은 미사용? 테이블 헤더에는 있음.
+            필드설명: field.FLD_CMT,
+            세그먼트: field.FLD_SGMT,
+            시작위치: field.ST_POS,
+            필드길이: field.FLD_LEN,
+            반복횟수: field.REPET_NUM,
+            순서: field.FLD_ORDER,
+            필수여부: field.ESSEN_YN,
+            기본값: field.DEFAULT_VAL,
+            "포맷/패턴": field.FLD_FORMAT,
+            코드셋: field.FLD_CDSET,
+            마스킹여부: field.MASK_YN,
+            비고: field.META_CONV_RULE,
+        }));
+
+        const ws = utils.json_to_sheet(dataToExport);
+        const wb = utils.book_new();
+        utils.book_append_sheet(wb, ws, "전문필드목록");
+        writeFile(wb, `전문필드목록_${selectedMessage.MSG_ID}.xlsx`);
     }
 
     function handleFieldListFileChange(e) {
@@ -438,94 +553,50 @@
             const jsonData = utils.sheet_to_json(worksheet);
 
             const newFields = jsonData.map((row) => ({
-                projectId:
-                    row["프로젝트 ID"] || selectedMessage?.projectId || "",
-                projectName:
-                    row["프로젝트명"] || selectedMessage?.projectName || "",
-                jobGroupId:
-                    row["업무그룹ID"] || selectedMessage?.jobGroupId || "",
-                messageId: row["전문ID"] || selectedMessage.messageId,
-                messageName:
-                    row["전문Name"] || selectedMessage?.messageNameKr || "",
-                fieldId: "",
-                fieldNameEng: row["필드명(영문)"] || "",
-                fieldNameKor: row["필드명(한글)"] || "",
-                fieldType: (row["필드타입"] || "STRING").toUpperCase(),
-                fieldDigits: String(row["필드자리수"] || "0").replace(
+                // PRJ_ID: row["프로젝트 ID"] || selectedMessage?.PRJ_ID || "",
+                // APP_ID: row["업무그룹ID"] || selectedMessage?.APP_ID || "",
+                // MSG_ID: row["전문ID"] || selectedMessage.MSG_ID,
+                PRJ_ID: selectedMessage.PRJ_ID,
+                APP_ID: selectedMessage.APP_ID,
+                MSG_ID: selectedMessage.MSG_ID,
+                MSGFLD_ID: "",
+                FLD_EN_NM: row["필드명(영문)"] || "",
+                FLD_KR_NM: row["필드명(한글)"] || "",
+                FLD_TYPE: (row["필드타입"] || "STRING").toUpperCase(),
+                FLD_LEN: String(row["필드길이"] || "0").replace(/[^0-9]/g, ""),
+                FLD_CMT: row["필드설명"] || "",
+                FLD_SGMT: row["세그먼트"] || "0",
+                ST_POS: String(row["시작위치"] || "0").replace(/[^0-9]/g, ""),
+                REPET_NUM: String(row["반복횟수"] || "1").replace(
                     /[^0-9]/g,
                     "",
                 ),
-                fieldLength: String(row["필드길이"] || "0").replace(
-                    /[^0-9]/g,
-                    "",
-                ),
-                fieldDesc: row["필드설명"] || "",
-                segment: row["세그먼트"] || "Root",
-                startPos: String(row["시작위치"] || "0").replace(/[^0-9]/g, ""),
-                loopCount: String(row["반복횟수"] || "1").replace(
-                    /[^0-9]/g,
-                    "",
-                ),
-                order: String(
+                FLD_ORDER: String(
                     row["순서"] || (fieldList.length + 1).toString(),
                 ).replace(/[^0-9]/g, ""),
-                mandatory: ["Y", "N"].includes(row["필수여부"])
+                ESSEN_YN: ["Y", "N"].includes(row["필수여부"])
                     ? row["필수여부"]
                     : "N",
-                defaultValue: row["기본값"] || "",
-                formatPattern: row["포맷/패턴"] || "",
-                codeSet: row["코드셋"] || "",
-                masking: ["Y", "N"].includes(row["마스킹여부"])
+                DEFAULT_VAL: row["기본값"] || "",
+                FLD_FORMAT: row["포맷/패턴"] || "",
+                FLD_CDSET: row["코드셋"] || "",
+                MASK_YN: ["Y", "N"].includes(row["마스킹여부"])
                     ? row["마스킹여부"]
                     : "N",
-                remarks: row["비고"] || "",
+                META_CONV_RULE: row["비고"] || "",
                 isChecked: true,
                 status: "N",
             }));
 
-            // 중복 확인 없이 무조건 추가 (사용자 요청)
-            allFieldList = [...allFieldList, ...newFields];
+            // 중복 확인 없이 무조건 추가 (사용자 요청 - Append)
+            fieldList = [...fieldList, ...newFields];
+            // allFieldList 업데이트가 필요하다면 함께 처리 (여기서는 fieldList가 메인으로 보임)
+            // allFieldList = [...allFieldList, ...newFields];
 
             alert(`${newFields.length}건의 필드가 추가되었습니다.`);
             fieldListFileInput.value = "";
         };
         reader.readAsArrayBuffer(file);
-    }
-
-    function handleFieldExcelDownload() {
-        if (!selectedMessage) {
-            alert("먼저 전문을 선택해주세요.");
-            return;
-        }
-        const ws = utils.json_to_sheet(
-            fieldList.map((field) => ({
-                "프로젝트 ID": field.projectId,
-                프로젝트명: field.projectName,
-                업무그룹ID: field.jobGroupId,
-                전문ID: field.messageId,
-                전문Name: field.messageName,
-                전문필드ID: field.fieldId,
-                "필드명(영문)": field.fieldNameEng,
-                "필드명(한글)": field.fieldNameKor,
-                필드타입: field.fieldType,
-                필드자리수: field.fieldDigits,
-                필드설명: field.fieldDesc,
-                세그먼트: field.segment,
-                시작위치: field.startPos,
-                필드길이: field.fieldLength,
-                반복횟수: field.loopCount,
-                순서: field.order,
-                필수여부: field.mandatory,
-                기본값: field.defaultValue,
-                "포맷/패턴": field.formatPattern,
-                코드셋: field.codeSet,
-                마스킹여부: field.masking,
-                비고: field.remarks,
-            })),
-        );
-        const wb = utils.book_new();
-        utils.book_append_sheet(wb, ws, "Message_Fields");
-        writeFile(wb, "Message_Fields.xlsx");
     }
 </script>
 
@@ -550,6 +621,8 @@
                     >
                     <select
                         bind:value={selectedProject}
+                        bind:this={projectSelectElement}
+                        on:change={searchJobs}
                         class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
                     >
                         <option value="">프로젝트 선택</option>
@@ -568,18 +641,19 @@
                     >
                     <select
                         bind:value={selectedJob}
+                        bind:this={jobSelectElement}
                         class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
                     >
                         <option value="">업무 선택</option>
-                        {#each filteredJobs as job}
-                            <option value={job.PKEY}>{job.TARGET_SYS}</option>
+                        {#each jobs as job}
+                            <option value={job.APP_ID}>{job.APPNM}</option>
                         {/each}
                     </select>
                 </div>
 
                 <div class="flex gap-1 ml-2">
                     <button
-                        on:click={jobSearch}
+                        on:click={searchMessages}
                         class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-3 py-1 text-xs rounded border border-blue-300 hover:border-blue-400 transition"
                     >
                         조회
@@ -634,10 +708,15 @@
                         </th>
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-10"
+                            >No</th
+                        >
+                        <th
+                            class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-10"
                             >상태</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                            style="width: 100px; min-width: 100px;"
                             >프로젝트 ID</th
                         >
                         <th
@@ -646,11 +725,12 @@
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                            style="width: 150px; min-width: 150px;"
                             >업무그룹ID</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >c_target_sys_c(업무명)</th
+                            >업무그룹명</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
@@ -670,11 +750,11 @@
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >포맷</th
+                            style="width: 100px; min-width: 100px;">포맷</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >방향</th
+                            style="width: 100px; min-width: 100px;">방향</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
@@ -687,7 +767,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white">
-                    {#each filteredMessageList as msg}
+                    {#each messages as msg, i}
                         <tr
                             class="hover:bg-blue-50 transition-colors border-b border-gray-200 cursor-pointer {selectedMessage ===
                             msg
@@ -705,6 +785,10 @@
                                 />
                             </td>
                             <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{i + 1}</td
+                            >
+                            <td
                                 class="border-r border-gray-200 px-2 py-1 text-center font-semibold {msg.status ===
                                 'D'
                                     ? 'text-red-500'
@@ -714,84 +798,108 @@
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{msg.projectId}</td
+                            >
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent text-center focus:outline-none"
+                                    value={msg.PRJ_ID}
+                                    readonly={msg.status !== "N"}
+                                    title={msg.PRJ_ID}
+                                    on:input={(e) => {
+                                        msg.PRJ_ID = e.currentTarget.value;
+                                        handleMessageChange(msg);
+                                    }}
+                                />
+                            </td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{projects.find((p) => p.PRJ_ID == msg.PRJ_ID)
+                                    ?.PRJ_NM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{msg.projectName}</td
+                            >
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent text-center focus:outline-none"
+                                    value={msg.APP_ID}
+                                    readonly={msg.status !== "N"}
+                                    title={msg.APP_ID}
+                                    on:input={(e) => {
+                                        msg.APP_ID = e.currentTarget.value;
+                                        handleMessageChange(msg);
+                                    }}
+                                />
+                            </td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{jobs.find((j) => j.APP_ID == msg.APP_ID)
+                                    ?.APPNM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{msg.jobGroupId}</td
-                            >
-                            <td
-                                class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{msg.jobName}</td
-                            >
-                            <td
-                                class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{msg.messageId}</td
+                                >{msg.MSG_ID}</td
                             >
                             <!-- <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
-                                bind:textContent={msg.messageId}
+                                bind:textContent={msg.MSG_ID}
                             ></td> -->
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={msg.messageNameKr}
-                                on:input={() => (msg.isChecked = true)}
+                                bind:textContent={msg.MSG_KR_NM}
+                                on:input={() => handleMessageChange(msg)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={msg.messageNameEn}
-                                on:input={() => (msg.isChecked = true)}
+                                bind:textContent={msg.MSG_EN_NM}
+                                on:input={() => handleMessageChange(msg)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
-                                    bind:value={msg.messageType}
-                                    on:change={() => (msg.isChecked = true)}
+                                    bind:value={msg.MSG_TYPE}
+                                    on:change={() => handleMessageChange(msg)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
-                                    <option value="요청">요청</option>
-                                    <option value="응답">응답</option>
+                                    <option value="Q">요청</option>
+                                    <option value="R">응답</option>
                                 </select>
                             </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
-                                    bind:value={msg.format}
-                                    on:change={() => (msg.isChecked = true)}
+                                    bind:value={msg.FORMAT_GB}
+                                    on:change={() => handleMessageChange(msg)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
-                                    <option value="JSON">JSON</option>
-                                    <option value="XML">XML</option>
-                                    <option value="FIXED">FIXED</option>
+                                    <option value="J">JSON</option>
+                                    <option value="X">XML</option>
+                                    <option value="F">FIXED</option>
                                 </select>
                             </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
-                                    bind:value={msg.direction}
-                                    on:change={() => (msg.isChecked = true)}
+                                    bind:value={msg.DIREC_GB}
+                                    on:change={() => handleMessageChange(msg)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
-                                    <option value="IN">IN</option>
-                                    <option value="OUT">OUT</option>
+                                    <option value="I">IN</option>
+                                    <option value="O">OUT</option>
                                 </select>
                             </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-right"
                                 contenteditable="true"
-                                bind:textContent={msg.totalLength}
+                                bind:textContent={msg.TOT_LEN}
                                 on:input={(e) => {
-                                    msg.isChecked = true;
+                                    handleMessageChange(msg);
                                     const cleaned =
                                         e.target.textContent.replace(
                                             /[^0-9]/g,
@@ -799,7 +907,7 @@
                                         );
                                     if (e.target.textContent !== cleaned) {
                                         e.target.textContent = cleaned;
-                                        msg.totalLength = cleaned;
+                                        msg.TOT_LEN = cleaned;
                                         // Move cursor to end
                                         const range = document.createRange();
                                         const sel = window.getSelection();
@@ -813,16 +921,16 @@
                             <td
                                 class="px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={msg.description}
-                                on:input={() => (msg.isChecked = true)}
+                                bind:textContent={msg.COMMENT}
+                                on:input={() => handleMessageChange(msg)}
                             ></td>
                         </tr>
                     {/each}
-                    {#if filteredMessageList.length === 0}
+                    {#if messages.length === 0}
                         <tr>
                             <td
                                 class="px-2 py-4 text-center text-gray-500"
-                                colspan="13"
+                                colspan="14"
                             >
                                 데이터가 없습니다.
                             </td>
@@ -842,9 +950,7 @@
             class="p-4 border-b border-gray-200 bg-gray-100 flex flex-wrap justify-between items-center gap-2"
         >
             <div class="flex items-center gap-2">
-                <h3 class="text-xl font-bold text-gray-700">
-                    전문 필드 {#if selectedMessage}({selectedMessage.messageId}){/if}
-                </h3>
+                <h3 class="text-xl font-bold text-gray-700">전문 필드</h3>
             </div>
 
             <div class="flex gap-1">
@@ -919,6 +1025,10 @@
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-10"
+                            >No</th
+                        >
+                        <th
+                            class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100 w-10"
                             >상태</th
                         >
                         <th
@@ -931,15 +1041,19 @@
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                            style="width: 150px; min-width: 150px;"
                             >업무그룹ID</th
+                        ><th
+                            class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
+                            >업무그룹명</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >전문ID</th
+                            style="width: 150px; min-width: 150px;">전문ID</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >전문Name</th
+                            >전문명</th
                         >
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
@@ -957,10 +1071,7 @@
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
                             >필드타입</th
                         >
-                        <th
-                            class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                            >필드자리수</th
-                        >
+
                         <th
                             class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
                             >필드설명</th
@@ -1012,7 +1123,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white">
-                    {#each fieldList as field}
+                    {#each fieldList as field, i}
                         <tr
                             class="hover:bg-blue-50 transition-colors border-b border-gray-200"
                         >
@@ -1024,6 +1135,10 @@
                                 /></td
                             >
                             <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{i + 1}</td
+                            >
+                            <td
                                 class="border-r border-gray-200 px-2 py-1 text-center font-semibold {field.status ===
                                 'D'
                                     ? 'text-red-500'
@@ -1033,45 +1148,88 @@
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{field.projectId}</td
+                            >
+                                <!-- <input
+                                    type="text"
+                                    class="w-full bg-transparent text-center focus:outline-none"
+                                    value={field.PRJ_ID}
+                                    readonly={field.status !== "N"}
+                                    title={field.PRJ_ID}
+                                    on:input={(e) => {
+                                        field.PRJ_ID = e.currentTarget.value;
+                                        field.isChecked = true;
+                                    }}
+                                /> -->
+                                {field.PRJ_ID}
+                            </td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{projects.find((p) => p.PRJ_ID == field.PRJ_ID)
+                                    ?.PRJ_NM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{field.projectName}</td
+                            >
+                                <!-- <input
+                                    type="text"
+                                    class="w-full bg-transparent text-center focus:outline-none"
+                                    value={field.APP_ID}
+                                    readonly={field.status !== "N"}
+                                    title={field.APP_ID}
+                                    on:input={(e) => {
+                                        field.APP_ID = e.currentTarget.value;
+                                        field.isChecked = true;
+                                    }}
+                                /> -->
+                                {field.APP_ID}
+                            </td>
+                            <td
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                                >{jobs.find((j) => j.APP_ID == field.APP_ID)
+                                    ?.APPNM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{field.jobGroupId}</td
                             >
-                            <td
-                                class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{field.messageId}</td
-                            >
+                                <!-- <input
+                                    type="text"
+                                    class="w-full bg-transparent text-center focus:outline-none"
+                                    value={field.MSG_ID}
+                                    readonly={field.status !== "N"}
+                                    title={field.MSG_ID}
+                                    on:input={(e) => {
+                                        field.MSG_ID = e.currentTarget.value;
+                                        field.isChecked = true;
+                                    }}
+                                /> -->
+                                {field.MSG_ID}
+                            </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
-                                >{field.messageName}</td
+                                >{messages.find((m) => m.MSG_ID == field.MSG_ID)
+                                    ?.MSG_KR_NM || ""}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{field.fieldId}</td
+                                >{field.MSGFLD_ID}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={field.fieldNameEng}
+                                bind:textContent={field.FLD_EN_NM}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={field.fieldNameKor}
+                                bind:textContent={field.FLD_KR_NM}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
-                                    bind:value={field.fieldType}
+                                    bind:value={field.FLD_TYPE}
                                     on:change={() => (field.isChecked = true)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
@@ -1080,39 +1238,17 @@
                                     <option value="DECIMAL">DECIMAL</option>
                                 </select>
                             </td>
-                            <td
-                                class="border-r border-gray-200 px-2 py-1 text-right"
-                                contenteditable="true"
-                                bind:textContent={field.fieldDigits}
-                                on:input={(e) => {
-                                    field.isChecked = true;
-                                    const cleaned =
-                                        e.target.textContent.replace(
-                                            /[^0-9]/g,
-                                            "",
-                                        );
-                                    if (e.target.textContent !== cleaned) {
-                                        e.target.textContent = cleaned;
-                                        field.fieldDigits = cleaned;
-                                        const range = document.createRange();
-                                        const sel = window.getSelection();
-                                        range.selectNodeContents(e.target);
-                                        range.collapse(false);
-                                        sel.removeAllRanges();
-                                        sel.addRange(range);
-                                    }
-                                }}
-                            ></td>
+
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={field.fieldDesc}
+                                bind:textContent={field.FLD_CMT}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
-                                bind:textContent={field.segment}
+                                bind:textContent={field.FLD_SGMT}
                                 on:input={(e) => {
                                     field.isChecked = true;
                                     const cleaned =
@@ -1122,7 +1258,7 @@
                                         );
                                     if (e.target.textContent !== cleaned) {
                                         e.target.textContent = cleaned;
-                                        field.segment = cleaned;
+                                        field.FLD_SGMT = cleaned;
                                         const range = document.createRange();
                                         const sel = window.getSelection();
                                         range.selectNodeContents(e.target);
@@ -1135,7 +1271,7 @@
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-right"
                                 contenteditable="true"
-                                bind:textContent={field.startPos}
+                                bind:textContent={field.ST_POS}
                                 on:input={(e) => {
                                     field.isChecked = true;
                                     const cleaned =
@@ -1145,7 +1281,7 @@
                                         );
                                     if (e.target.textContent !== cleaned) {
                                         e.target.textContent = cleaned;
-                                        field.startPos = cleaned;
+                                        field.ST_POS = cleaned;
                                         const range = document.createRange();
                                         const sel = window.getSelection();
                                         range.selectNodeContents(e.target);
@@ -1158,7 +1294,7 @@
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-right"
                                 contenteditable="true"
-                                bind:textContent={field.fieldLength}
+                                bind:textContent={field.FLD_LEN}
                                 on:input={(e) => {
                                     field.isChecked = true;
                                     const cleaned =
@@ -1168,7 +1304,7 @@
                                         );
                                     if (e.target.textContent !== cleaned) {
                                         e.target.textContent = cleaned;
-                                        field.fieldLength = cleaned;
+                                        field.FLD_LEN = cleaned;
                                         const range = document.createRange();
                                         const sel = window.getSelection();
                                         range.selectNodeContents(e.target);
@@ -1181,7 +1317,7 @@
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-right"
                                 contenteditable="true"
-                                bind:textContent={field.loopCount}
+                                bind:textContent={field.REPET_NUM}
                                 on:input={(e) => {
                                     field.isChecked = true;
                                     const cleaned =
@@ -1191,7 +1327,7 @@
                                         );
                                     if (e.target.textContent !== cleaned) {
                                         e.target.textContent = cleaned;
-                                        field.loopCount = cleaned;
+                                        field.REPET_NUM = cleaned;
                                         const range = document.createRange();
                                         const sel = window.getSelection();
                                         range.selectNodeContents(e.target);
@@ -1202,33 +1338,23 @@
                                 }}
                             ></td>
                             <td
-                                class="border-r border-gray-200 px-2 py-1 text-right"
-                                contenteditable="true"
-                                bind:textContent={field.order}
-                                on:input={(e) => {
-                                    field.isChecked = true;
-                                    const cleaned =
-                                        e.target.textContent.replace(
-                                            /[^0-9]/g,
-                                            "",
-                                        );
-                                    if (e.target.textContent !== cleaned) {
-                                        e.target.textContent = cleaned;
-                                        field.order = cleaned;
-                                        const range = document.createRange();
-                                        const sel = window.getSelection();
-                                        range.selectNodeContents(e.target);
-                                        range.collapse(false);
-                                        sel.removeAllRanges();
-                                        sel.addRange(range);
-                                    }
-                                }}
-                            ></td>
+                                class="border-r border-gray-200 px-2 py-1 text-center"
+                            >
+                                <input
+                                    type="number"
+                                    class="w-full bg-transparent text-right focus:outline-none"
+                                    value={field.FLD_ORDER}
+                                    on:input={(e) => {
+                                        field.FLD_ORDER = e.currentTarget.value;
+                                        field.isChecked = true;
+                                    }}
+                                />
+                            </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
-                                    bind:value={field.mandatory}
+                                    bind:value={field.ESSEN_YN}
                                     on:change={() => (field.isChecked = true)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
@@ -1239,26 +1365,26 @@
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
-                                bind:textContent={field.defaultValue}
+                                bind:textContent={field.DEFAULT_VAL}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
-                                bind:textContent={field.formatPattern}
+                                bind:textContent={field.FLD_FORMAT}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
                                 contenteditable="true"
-                                bind:textContent={field.codeSet}
+                                bind:textContent={field.FLD_CDSET}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center p-0"
                             >
                                 <select
-                                    bind:value={field.masking}
+                                    bind:value={field.MASK_YN}
                                     on:change={() => (field.isChecked = true)}
                                     class="w-full h-full border-none focus:ring-0 bg-transparent text-center"
                                 >
@@ -1269,7 +1395,7 @@
                             <td
                                 class="px-2 py-1 text-left"
                                 contenteditable="true"
-                                bind:textContent={field.remarks}
+                                bind:textContent={field.META_CONV_RULE}
                                 on:input={() => (field.isChecked = true)}
                             ></td>
                         </tr>

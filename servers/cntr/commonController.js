@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * GET /project/list
- * Returns the list of projects (from mock SQL)
+ * Returns the list of projects 
  */
 router.get('/project/list', async (req, res) => {
     try {
@@ -19,7 +19,7 @@ router.get('/project/list', async (req, res) => {
 
 /**
  * GET /job/list
- * Returns the list of jobs (from mock SQL)
+ * Returns the list of jobs 
  */
 router.get('/job/list', async (req, res) => {
     try {
