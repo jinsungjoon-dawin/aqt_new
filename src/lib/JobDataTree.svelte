@@ -85,7 +85,7 @@
         }
 
         let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
-        queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+        queryParams += selectedJob ? `&app_id=${selectedJob}` : "";
 
         try {
             const res = await fetch(
@@ -231,8 +231,8 @@
                     "전문 ID",
                     "전문명",
                     "전문데이터ID",
-                    "FIXEDLEN_VAL",
-                    "COMMENT",
+                    "전문데이터",
+                    "설명",
                 ];
                 gridData = data;
             } else {
@@ -414,7 +414,7 @@
                 class="p-3 border-b border-gray-200 bg-gray-100 font-bold flex justify-between items-center"
             >
                 <span>
-                    전문 등데이터
+                    전문 데이터
                     {#if selectedNode}
                         <span class="text-blue-600 ml-2"
                             >- {selectedNode.name} ({selectedNode.id})</span

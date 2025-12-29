@@ -40,6 +40,8 @@
     async function searchJobs() {
         selectedJob = "";
         jobs = [];
+        selectedMessageId = ""; // Reset message selection
+        messages = [];
         if (!selectedProject) return;
         const queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
         try {
@@ -55,11 +57,10 @@
     // 전문 목록 조회
     async function searchMessages() {
         selectedMessageId = ""; // Reset message selection
-        dataList = []; // Reset data grid
         messages = [];
         if (!selectedJob) return;
         let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
-        queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+        queryParams += selectedJob ? `&app_id=${selectedJob}` : "";
 
         try {
             const res = await fetch(
@@ -73,15 +74,19 @@
 
     // 조회 함수
     async function datsSearch() {
-        if (!selectedMessageId) {
-            alert("조회할 전문을 선택해주세요.");
-            return;
-        }
+        // if (!selectedMessageId) {
+        //     alert("조회할 전문을 선택해주세요.");
+        //     return;
+        // }
 
         isLoading = true;
         try {
-            let queryParams = selectedMessageId
-                ? `?mgs_id=${selectedMessageId}`
+            let queryParams = selectedProject
+                ? `?prj_id=${selectedProject}`
+                : "";
+            queryParams += selectedJob ? `&app_id=${selectedJob}` : "";
+            queryParams += selectedMessageId
+                ? `&msg_id=${selectedMessageId}`
                 : "";
             const res = await fetch(`${$rooturl}/jobs/data/list` + queryParams);
             dataList = await res.json();
@@ -288,9 +293,9 @@
 
             const flat = {
                 "프로젝트 ID": row.PRJ_ID,
-                프로젝트명: project ? project.PRJ_NM : row.PRJ_NM || "",
+                프로젝트명: row.PRJ_NM,
                 "업무 ID": row.APP_ID,
-                업무명: job ? job.APPNM : row.APP_NM || "",
+                업무명: row.APP_NM,
                 "전문 ID": row.MSG_ID,
                 전문명: row.MSG_KR_NM,
                 전문데이터ID: row.MSGDT_ID,
@@ -519,8 +524,7 @@
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{projects.find((p) => p.PRJ_ID == row.PRJ_ID)
-                                    ?.PRJ_NM || ""}</td
+                                >{row.PRJ_NM}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
@@ -528,8 +532,7 @@
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{jobs.find((j) => j.APP_ID == row.APP_ID)
-                                    ?.APPNM || ""}</td
+                                >{row.APPNM}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
@@ -537,8 +540,7 @@
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{messages.find((m) => m.MSG_ID == row.MSG_ID)
-                                    ?.MSG_KR_NM || ""}</td
+                                >{row.MSG_KR_NM}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"

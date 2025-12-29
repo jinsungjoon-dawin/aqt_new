@@ -16,6 +16,7 @@
   import Test from "./lib/Test.svelte";
   import Tree from "./lib/Tree.svelte";
   import TreeCRUD from "./lib/TreeCRUD.svelte";
+  import UserUploadManagement from "./lib/UserUploadManagement.svelte";
 
   import { isLogged, userid, t } from "./aqtstore";
   import { onMount } from "svelte";
@@ -46,6 +47,10 @@
         { pageNm: "Job Config", cnm: Job },
       ],
     },
+    // {
+    //   pageNm: "사용자 업로드 관리",
+    //   cnm: UserUploadManagement,
+    // },
   ];
 
   function getToDate() {

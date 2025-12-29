@@ -7,6 +7,7 @@ import logonchk from './cntr/logonchk.js';
 import jobController from './cntr/jobController.js'
 import commonController from './cntr/commonController.js'
 import company from './cntr/company.js'
+import useruploadmanagement from './cntr/userUploadManagement.js';
 
 
 const app = express();
@@ -37,6 +38,7 @@ app.use('/logonchk', logonchk);
 app.use('/jobs', jobController);
 app.use('/company', company);
 app.use('/common', commonController);
+app.use('/useruploadmanagement', useruploadmanagement);
 
 app.listen(port, '0.0.0.0', () => {
    console.log(`Server is up at port ${port}`);

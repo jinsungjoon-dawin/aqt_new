@@ -27,7 +27,7 @@ const jobs = {
 
             let query = `select a.PKEY, a.MSG_ID, a.PRJ_ID, a.APP_ID,b.APPNM, a.MSG_KR_NM, a.MSG_EN_NM, a.MSG_TYPE, FORMAT_GB, DIREC_GB, TOT_LEN, COMMENT 
                             from aqt_message_tb a
-                            join mondb.aqt_business_tb b on b.prj_id = a.prj_id and b.app_id = a.app_id  
+                            join aqt_business_tb b on b.prj_id = a.prj_id and b.app_id = a.app_id  
                          WHERE 1=1`;
 
             const params = [];
@@ -37,8 +37,8 @@ const jobs = {
                     query += ` AND a.PRJ_ID = ?`;
                     params.push(req.prj_id);
                 }
-                // Frontend sends job_id, which maps to APP_ID in the table
-                const appId = req.job_id || req.app_id;
+                // Frontend sends app_id, which maps to APP_ID in the table
+                const appId = req.app_id || req.app_id;
                 if (appId) {
                     query += ` AND a.APP_ID = ?`;
                     params.push(appId);
@@ -153,28 +153,28 @@ const jobs = {
             conn = await mondb.getConnection();
 
             let query = `SELECT 
-                PKEY, MSGFLD_ID, PRJ_ID, APP_ID, MSG_ID, 
-                FLD_KR_NM, FLD_EN_NM, FLD_TYPE, FLD_LEN, FLD_CMT, 
-                FLD_SGMT, ST_POS, FLD_DEPTH, REPET_NUM, FLD_ORDER, 
-                ESSEN_YN, DEFAULT_VAL, FLD_FORMAT, FLD_CDSET, MASK_YN, META_CONV_RULE
-            FROM aqt_messagefield_tb
+                a.PKEY, a.MSGFLD_ID, a.PRJ_ID, a.APP_ID,b.APPNM, a.MSG_ID, 
+                a.FLD_KR_NM, a.FLD_EN_NM, a.FLD_TYPE, a.FLD_LEN, a.FLD_CMT, 
+                a.FLD_SGMT, a.ST_POS, a.FLD_DEPTH, a.REPET_NUM, a.FLD_ORDER, 
+                a.ESSEN_YN, a.DEFAULT_VAL, a.FLD_FORMAT, a.FLD_CDSET, a.MASK_YN, a.META_CONV_RULE
+            FROM aqt_messagefield_tb a
+            join aqt_business_tb b on b.prj_id = a.prj_id and b.app_id = a.app_id
             WHERE 1=1`;
 
             const params = [];
 
             if (req) {
                 if (req.prj_id) {
-                    query += ` AND PRJ_ID = ?`;
+                    query += ` AND A.PRJ_ID = ?`;
                     params.push(req.prj_id);
                 }
-                const appId = req.job_id || req.app_id;
-                if (appId) {
-                    query += ` AND APP_ID = ?`;
-                    params.push(appId);
+                if (req.app_id) {
+                    query += ` AND A.APP_ID = ?`;
+                    params.push(req.app_id);
                 }
-                if (req.message_id) {
-                    query += ` AND MSG_ID = ?`;
-                    params.push(req.message_id);
+                if (req.msg_id) {
+                    query += ` AND A.MSG_ID = ?`;
+                    params.push(req.msg_id);
                 }
 
                 // Field Search Keyword
@@ -359,27 +359,36 @@ const jobs = {
         let conn = null;
         try {
             conn = await mondb.getConnection();
-            // User requested query:
-            // select A.MSG_ID, a.MSG_KR_NM, b.*
-            // from aqt_message_tb a
-            // left join aqt_messagedata_tb b on a.MSG_ID = b.MSG_ID 
-            // where 1=1 and a.MSG_ID = ?
-
-            const query = `
-                SELECT A.PRJ_ID
-                      ,A.APP_ID 
-                      ,A.MSG_ID
-                      ,A.MSG_KR_NM 
-                      ,B.PKEY
-                      ,B.MSGDT_ID
-                      ,B.FIXEDLEN_VAL
-                      ,B.COMMENT
-                FROM aqt_message_tb A
-                JOIN aqt_messagedata_tb B ON A.MSG_ID = B.MSG_ID 
-                WHERE 1=1
-                  AND A.MSG_ID = ?
+            let params = [];
+            let query = `
+                SELECT a.PRJ_ID
+                      ,d.PRJ_NM
+                      ,a.APP_ID 
+                      ,c.APPNM 
+                      ,a.MSG_ID
+                      ,b.MSG_KR_NM 
+                      ,a.PKEY
+                      ,a.MSGDT_ID
+                      ,a.FIXEDLEN_VAL
+                      ,a.COMMENT
+                FROM aqt_messagedata_tb a 
+                join aqt_message_tb b on a.PRJ_ID = b.PRJ_ID  and a.APP_ID = b.APP_ID and a.MSG_ID = b.MSG_ID 
+                join aqt_business_tb c on a.PRJ_ID = c.PRJ_ID  and a.APP_ID = c.APP_ID  
+                join aqt_project_tb d on a.PRJ_ID = d.PRJ_ID 
             `;
-            const rows = await conn.query(query, [req.mgs_id]);
+            if (req.prj_id) {
+                query += ` AND a.PRJ_ID = ?`;
+                params.push(req.prj_id);
+            }
+            if (req.app_id) {
+                query += ` AND a.APP_ID = ?`;
+                params.push(req.app_id);
+            }
+            if (req.msg_id) {
+                query += ` AND a.MSG_ID = ?`;
+                params.push(req.msg_id);
+            }
+            const rows = await conn.query(query, params);
             return rows;
         } catch (error) {
             console.error('getDataList error:', error);

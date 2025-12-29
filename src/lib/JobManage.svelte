@@ -78,13 +78,14 @@
         // }
 
         let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
-        queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+        queryParams += selectedJob ? `&app_id=${selectedJob}` : "";
 
         try {
             const res = await fetch(
                 $rooturl + "/jobs/message/list" + queryParams,
             );
             messages = await res.json();
+            fieldList = [];
         } catch (error) {
             console.error("전문 목록 로딩 실패:", error);
         }
@@ -113,11 +114,9 @@
     async function searchFields(msg) {
         if (!msg.MSG_ID) return;
         try {
-            let queryParams = selectedProject
-                ? `?prj_id=${selectedProject}`
-                : "";
-            queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
-            queryParams += msg ? `&message_id=${msg.MSG_ID}` : "";
+            let queryParams = msg.PRJ_ID ? `?prj_id=${msg.PRJ_ID}` : "";
+            queryParams += msg.APP_ID ? `&app_id=${msg.APP_ID}` : "";
+            queryParams += msg.MSG_ID ? `&msg_id=${msg.MSG_ID}` : "";
 
             // Add search keyword
             if (searchFieldKeyword) {
@@ -786,8 +785,7 @@
                             </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{jobs.find((j) => j.APP_ID == msg.APP_ID)
-                                    ?.APPNM || ""}</td
+                                >{msg.APPNM}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
@@ -1138,8 +1136,7 @@
                             </td>
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"
-                                >{jobs.find((j) => j.APP_ID == field.APP_ID)
-                                    ?.APPNM || ""}</td
+                                >{field.APPNM}</td
                             >
                             <td
                                 class="border-r border-gray-200 px-2 py-1 text-center"

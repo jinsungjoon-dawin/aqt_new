@@ -23,7 +23,7 @@ router.get('/project/list', async (req, res) => {
  */
 router.get('/job/list', async (req, res) => {
     try {
-        const result = await commonModel.getJobList(req);
+        const result = await commonModel.getJobList(req.query);
         res.json(result);
     } catch (error) {
         console.error('Error fetching job list:', error);

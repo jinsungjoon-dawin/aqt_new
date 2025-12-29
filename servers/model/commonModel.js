@@ -44,9 +44,9 @@ const commonModel = {
             const params = [];
 
             // req.query에서 prj_id 확인 (GET 요청이므로 query)
-            if (req.query && req.query.prj_id) {
+            if (req.prj_id) {
                 query += ` AND PRJ_ID = ?`;
-                params.push(req.query.prj_id);
+                params.push(req.prj_id);
             }
 
             const rows = await conn.query(query, params);
