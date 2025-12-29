@@ -126,7 +126,9 @@
     }
 </script>
 
-<div class="container mx-auto p-4 lg:p-6 bg-gray-50 min-h-screen">
+<div
+    class="container mx-auto p-4 lg:p-8 bg-gray-50 flex flex-col h-[calc(100vh-4.1rem)] bg-gray-50 p-4 lg:p-8 gap-4"
+>
     <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">CommHeader 자료등록</h2>
     </div>
