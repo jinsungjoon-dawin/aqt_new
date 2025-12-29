@@ -51,6 +51,8 @@
     // 업무 목록 조회
     async function searchJobs() {
         selectedJob = "";
+        jobs = [];
+        if (!selectedProject) return;
         const queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
         try {
             const jobRes = await fetch(

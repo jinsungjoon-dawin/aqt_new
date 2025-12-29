@@ -2,179 +2,202 @@
     import { onMount, tick } from "svelte";
     import { rooturl } from "../aqtstore";
 
-    // --- Data State ---
+    // --- 데이터 상태 ---
     let projects = [];
     let jobs = [];
-    let allMessages = [];
+    let messages = []; // 의미에 맞게 변수명 변경 (allMessages -> messages)
 
-    // Filter State
+    let projectAll = [],
+        jobAll = [],
+        messageAll = [];
+
+    // 필터 상태
     let selectedProject = "";
     let selectedJob = "";
     let selectedMessageId = "";
-    let filteredJobs = [];
-    let filteredMessages = [];
 
-    // Tree Structure State
-    // treeData = [ { project..., isOpen, children: [ { job..., isOpen, children: [ { message... } ] } ] } ]
+    // UI 참조
+    let projectSelectElement;
+    let jobSelectElement;
+
+    // 트리 구조 상태
     let treeData = [];
 
-    // Right Grid State
+    // 우측 그리드 상태
     let selectedNode = null; // { type: 'message', id: ... , name: ... }
     let gridData = [];
     let gridColumns = [];
     let isLoading = false;
+    let isLoad = false;
 
     onMount(async () => {
-        await loadMetadata();
-        buildTree();
+        await searchProjects();
+        await searchJobs();
+        await searchMessages();
+        isLoad = true;
     });
 
-    // --- Reactive Filters ---
-    $: {
-        filteredJobs = selectedProject
-            ? jobs.filter((j) => j.PRJ_ID === selectedProject)
-            : jobs;
-        if (selectedJob && !filteredJobs.find((j) => j.id === selectedJob)) {
-            selectedJob = "";
-        }
-    }
+    // --- 조회 함수 (JobDataManage에서 차용) ---
 
-    $: {
-        filteredMessages = selectedJob
-            ? allMessages.filter((m) => m.jobId === selectedJob)
-            : [];
-        if (
-            selectedMessageId &&
-            !filteredMessages.find((m) => m.messageId === selectedMessageId)
-        ) {
-            selectedMessageId = "";
-        }
-    }
-
-    async function loadMetadata() {
+    // 프로젝트 목록 조회
+    async function searchProjects() {
         try {
-            // 프로젝트/업무 목록 로딩
-            const pRes = await fetch($rooturl + "/common/project/list");
-            projects = await pRes.json();
+            const projectRes = await fetch($rooturl + "/common/project/list");
 
-            const jRes = await fetch($rooturl + "/common/job/list");
-            jobs = await jRes.json();
-
-            // 전문 목록 로딩
-            const mRes = await fetch($rooturl + "/jobs/message/list", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
-            });
-            allMessages = await mRes.json();
-        } catch (e) {
-            console.error(e);
+            projects = await projectRes.json();
+            if (!isLoad) projectAll = projects;
+            // 프로젝트만으로 초기 트리 구성하지 않음 (조회 버튼 클릭 시 구성)
+        } catch (error) {
+            console.error("프로젝트 목록 로딩 실패:", error);
         }
     }
 
-    function buildTree() {
-        // Build hierarchy: Project -> Job -> Message
-        treeData = projects.map((proj) => {
-            const projJobs = jobs.filter((j) => j.projectId === proj.id);
-            const jobNodes = projJobs.map((job) => {
-                const jobMsgs = allMessages.filter((m) => m.jobId === job.id);
-                return {
-                    id: job.id,
-                    name: job.name,
-                    type: "job",
-                    isOpen: false,
-                    children: jobMsgs.map((msg) => ({
-                        id: msg.messageId,
-                        name: msg.messageNameKr || msg.messageNameEn,
-                        type: "message",
-                        projectId: proj.id,
-                        jobId: job.id,
-                    })),
-                };
-            });
+    // 업무 목록 조회
+    async function searchJobs() {
+        selectedJob = "";
+        selectedMessageId = "";
+        jobs = [];
+        messages = [];
 
-            return {
-                id: proj.id,
-                name: proj.name,
-                type: "project",
-                isOpen: true, // Auto-open projects by default
-                children: jobNodes,
-            };
-        });
-    }
-
-    // --- Actions ---
-
-    async function handleSearch() {
-        if (!selectedProject) {
-            alert("최소한 프로젝트는 선택해주세요."); // UX choice, or just search all
+        if (isLoad && !selectedProject) {
             return;
         }
 
-        // 1. Reset Tree State (Close all first? Optional)
-        // Let's keep existing state unless we strictly want to focus on result.
-        // For 'Search', we usually want to REVEAL the target.
+        const queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
+        try {
+            const jobRes = await fetch(
+                $rooturl + "/common/job/list" + queryParams,
+            );
+            jobs = await jobRes.json();
+            if (!isLoad) jobAll = jobs;
+        } catch (error) {
+            console.error("업무 목록 로딩 실패:", error);
+        }
+    }
 
-        // 2. Find path to target
-        let targetProjId = selectedProject;
-        let targetJobId = selectedJob;
-        let targetMsgId = selectedMessageId;
+    // 전문 목록 조회
+    async function searchMessages() {
+        selectedMessageId = "";
+        messages = [];
 
-        // 3. Update Tree Data to Open Nodes
-        treeData = treeData.map((proj) => {
-            // Project Check
-            if (targetProjId && proj.id !== targetProjId) {
-                // If specific project selected and this is not it, maybe close or leave as is?
-                // Let's leave as is to be less intrusive, or close if we want filter effect.
-                // Assuming 'Focus' behavior:
-                return proj;
+        if (isLoad && !selectedJob) {
+            return;
+        }
+
+        let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
+        queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
+
+        try {
+            const res = await fetch(
+                $rooturl + "/jobs/message/list" + queryParams,
+            );
+            messages = await res.json();
+            if (!isLoad) messageAll = messages;
+        } catch (error) {
+            console.error("전문 목록 로딩 실패:", error);
+        }
+    }
+
+    // 조회 버튼 액션 (선택된 항목으로 트리/그리드 업데이트 or 리프레시)
+    async function handleSearch() {
+        // 선택 상자가 즉시 조회를 트리거하므로, 이 버튼은 '새로고침' 또는
+        // 트리의 상태를 확실히 하는 용도로 사용됩니다.
+
+        // 1. 트리 구성
+        buildTree();
+        await tick();
+
+        // 2. 현재는 특정 전문이 선택된 경우 해당 전문을 선택하도록 합니다.
+        if (selectedMessageId) {
+            // 트리에서 전문 노드 찾아서 선택
+            // 트리 업데이트가 비동기가 아니면(fetch 후 대부분 동기) 바로 찾음
+            const targetNode = findNode("message", selectedMessageId);
+            if (targetNode) {
+                selectMessage(targetNode);
             }
+        }
+    }
 
-            let isOpenProj = proj.isOpen;
-            if (targetProjId && proj.id === targetProjId) isOpenProj = true;
-
-            const newChildren = proj.children.map((job) => {
-                // Job Check
-                if (targetJobId && job.id !== targetJobId) return job;
-
-                let isOpenJob = job.isOpen;
-                if (targetJobId && job.id === targetJobId) isOpenJob = true;
-
-                // Message Check (Leaf node doesn't have isOpen, but we might want to select it)
-                if (targetMsgId) {
-                    const hasMsg = job.children.find(
-                        (m) => m.id === targetMsgId,
-                    );
-                    if (hasMsg) isOpenJob = true; // Open job if message is inside
+    function findNode(type, id) {
+        for (const proj of treeData) {
+            if (type === "project" && proj.id === id) return proj;
+            for (const job of proj.children) {
+                if (type === "job" && job.id === id) return job;
+                for (const msg of job.children) {
+                    if (type === "message" && msg.id === id) return msg;
                 }
+            }
+        }
+        return null;
+    }
 
-                return { ...job, isOpen: isOpenJob };
+    function buildTree() {
+        // 현재 로드된 프로젝트, 업무, 전문을 기반으로 계층 구조 생성
+        // 'jobs'가 비어있으면(아직 로드 안됨), 서버에 존재하더라도 프로젝트 노드의 자식은 비어있음.
+        // 이는 '검색' 동작과 일치함.
+        // projectAll.filter((proj) => proj.PRJ_ID === selectedProject);
+        const project = selectedProject
+            ? projectAll.filter((proj) => proj.PRJ_ID === selectedProject)
+            : projectAll;
+        const job = selectedJob
+            ? jobAll.filter((job) => job.APP_ID === selectedJob)
+            : jobAll;
+        const message = selectedMessageId
+            ? messageAll.filter((msg) => msg.MSG_ID === selectedMessageId)
+            : messageAll;
+
+        console.log(project, job, message);
+        treeData = project.map((proj) => {
+            // 현재 프로젝트에 속하고 로드된 업무만 포함
+            // selectedProject가 설정된 경우, 해당 프로젝트의 업무만 로드되었을 가능성이 높음.
+            const projJobs = job.filter((j) => j.PRJ_ID === proj.PRJ_ID); // 속성 이름 확인
+
+            const jobNodes = projJobs.map((job) => {
+                // 전문도 마찬가지
+                const jobMsgs = message.filter(
+                    (m) => m.PRJ_ID === job.PRJ_ID && m.APP_ID === job.APP_ID,
+                );
+
+                const children = jobMsgs.map((msg) => ({
+                    id: msg.MSG_ID,
+                    name: msg.MSG_KR_NM || msg.messageNameKr,
+                    type: "message",
+                    projectId: proj.PRJ_ID,
+                    jobId: job.APP_ID,
+                }));
+
+                // 업무가 선택되었거나, 검색된 전문이 포함되어 있으면 열기
+                const isOpen =
+                    job.APP_ID === selectedJob ||
+                    (selectedMessageId &&
+                        children.some((c) => c.id === selectedMessageId));
+
+                return {
+                    id: job.APP_ID,
+                    name: job.APPNM,
+                    type: "job",
+                    isOpen: isOpen, // 선택된 경우 자동 열기
+                    children: children,
+                };
             });
 
-            return { ...proj, isOpen: isOpenProj, children: newChildren };
+            const isSelectedProject = proj.PRJ_ID === selectedProject;
+
+            return {
+                id: proj.PRJ_ID,
+                name: proj.PRJ_NM,
+                type: "project",
+                isOpen: isSelectedProject, // 선택된 경우 자동 열기
+                children: jobNodes,
+            };
         });
 
-        // 4. Force UI Update & Select Node
-        await tick();
-        if (targetMsgId) {
-            // Find the node object to select
-            for (const proj of treeData) {
-                for (const job of proj.children) {
-                    const msg = job.children.find((m) => m.id === targetMsgId);
-                    if (msg) {
-                        selectMessage(msg);
-                        return; // Done
-                    }
-                }
-            }
-        } else if (targetJobId) {
-            // Optional: Select Job Node if we had a job selection UI in tree
-        }
+        console.log(treeData);
     }
 
     function toggleNode(node) {
         node.isOpen = !node.isOpen;
-        treeData = treeData; // Trigger reactivity
+        treeData = treeData; // 반응성 트리거
     }
 
     function selectMessage(node) {
@@ -186,28 +209,32 @@
     async function loadGridData(node) {
         isLoading = true;
         try {
-            const res = await fetch($rooturl + "/jobs/data/list", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ messageId: node.id }),
-            });
+            // JobDataManage와 동일하게 쿼리 파라미터 스타일 사용
+            const res = await fetch(
+                `${$rooturl}/jobs/data/list?mgs_id=${node.id}`,
+            );
             const data = await res.json();
 
-            // Infer columns from dynamicData of the first row if available, or just empty
-            // The backend sends `dynamicData` object.
-
             if (data.length > 0) {
-                // Get all unique keys from all rows to ensure we show all columns
-                const keys = new Set();
-                data.forEach((row) => {
-                    if (row.dynamicData) {
-                        Object.keys(row.dynamicData).forEach((k) =>
-                            keys.add(k),
-                        );
-                    }
-                });
-                gridColumns = Array.from(keys);
-                gridData = data.map((row) => ({ ...row.dynamicData })); // Flatten for simple grid display
+                // JobDataManage 리턴 구조는 객체 배열(평탄화됨).
+                // 이전 코드의 dynamicData 부분은 제거하고 JobDataManage 구조에 맞춤.
+
+                // JobDataManage 테이블 컬럼: 체크박스, 상태, PRJ_ID, PRJ_NM, APP_ID, APP_NM, MSG_ID, MSG_NM, MSGDT_ID, content, comment
+                // 여기서 관련 컬럼 표시.
+
+                // 표준 컬럼 + 내용/설명 선택
+                gridColumns = [
+                    "프로젝트 ID",
+                    "프로젝트명",
+                    "업무그룹 ID",
+                    "업무명",
+                    "전문 ID",
+                    "전문명",
+                    "전문데이터ID",
+                    "FIXEDLEN_VAL",
+                    "COMMENT",
+                ];
+                gridData = data;
             } else {
                 gridColumns = [];
                 gridData = [];
@@ -238,6 +265,8 @@
             >
             <select
                 bind:value={selectedProject}
+                bind:this={projectSelectElement}
+                on:change={searchJobs}
                 class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
             >
                 <option value="">프로젝트 선택</option>
@@ -252,11 +281,13 @@
             <span class="text-gray-700 font-semibold px-2 text-sm">업무</span>
             <select
                 bind:value={selectedJob}
+                bind:this={jobSelectElement}
+                on:change={searchMessages}
                 class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
             >
                 <option value="">업무 선택</option>
-                {#each filteredJobs as job}
-                    <option value={job.PKEY}>{job.TARGET_SYS}</option>
+                {#each jobs as job}
+                    <option value={job.APP_ID}>{job.APPNM}</option>
                 {/each}
             </select>
         </div>
@@ -269,8 +300,8 @@
                 class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[150px]"
             >
                 <option value="">전문 선택</option>
-                {#each filteredMessages as msg}
-                    <option value={msg.id}>{msg.name}</option>
+                {#each messages as msg}
+                    <option value={msg.MSG_ID}>{msg.MSG_KR_NM}</option>
                 {/each}
             </select>
         </div>
@@ -435,14 +466,62 @@
                         <tbody>
                             {#each gridData as row, i}
                                 <tr
-                                    class="hover:bg-blue-50 transition border-b border-gray-200"
+                                    class="hover:bg-blue-50 transition-colors border-b border-gray-200"
                                 >
-                                    {#each gridColumns as col}
-                                        <td
-                                            class="border-r border-gray-200 px-4 py-2 text-center"
-                                            >{row[col]}</td
-                                        >
-                                    {/each}
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{row.PRJ_ID || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{projects.find(
+                                            (p) => p.PRJ_ID == row.PRJ_ID,
+                                        )?.PRJ_NM || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{row.APP_ID || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{jobs.find(
+                                            (j) => j.APP_ID == row.APP_ID,
+                                        )?.APPNM || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{row.MSG_ID || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{messages.find(
+                                            (m) => m.MSG_ID == row.MSG_ID,
+                                        )?.MSG_KR_NM || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center"
+                                        >{row.MSGDT_ID || ""}</td
+                                    >
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                        contenteditable="true"
+                                        bind:textContent={row.FIXEDLEN_VAL}
+                                        on:input={() => {
+                                            if (row.status === "R")
+                                                row.status = "U";
+                                            row.isChecked = true;
+                                        }}
+                                    ></td>
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                        contenteditable="true"
+                                        bind:textContent={row.COMMENT}
+                                        on:input={() => {
+                                            if (row.status === "R")
+                                                row.status = "U";
+                                            row.isChecked = true;
+                                        }}
+                                    ></td>
                                 </tr>
                             {/each}
                         </tbody>

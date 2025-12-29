@@ -5,8 +5,9 @@ const router = express.Router();
 
 
 /**
- * Message Management Routes
+ * 전문 관리 라우트
  */
+// 전문 목록 조회
 router.get('/message/list', async (req, res) => {
     try {
         const result = await jobModel.getMessageList(req.query);
@@ -17,7 +18,7 @@ router.get('/message/list', async (req, res) => {
     }
 });
 
-
+// 전문 저장 (추가/수정)
 router.post('/message/save', async (req, res) => {
     try {
         const result = await jobModel.saveMessage(req.body);
@@ -28,19 +29,12 @@ router.post('/message/save', async (req, res) => {
     }
 });
 
-router.post('/message/delete', async (req, res) => {
-    try {
-        const result = await jobModel.deleteMessage(req.body);
-        res.json(result);
-    } catch (error) {
-        console.error('Error deleting message:', error);
-        res.status(500).json({ message: 'Error deleting message', error: error.message });
-    }
-});
+
 
 /**
- * Field Management Routes
+ * 필드(항목) 관리 라우트
  */
+// 필드 목록 조회
 router.get('/field/list', async (req, res) => {
     try {
         const result = await jobModel.getFieldList(req.query);
@@ -51,6 +45,7 @@ router.get('/field/list', async (req, res) => {
     }
 });
 
+// 필드 저장 (추가/수정)
 router.post('/field/save', async (req, res) => {
     try {
         const result = await jobModel.saveField(req.body);
@@ -61,6 +56,7 @@ router.post('/field/save', async (req, res) => {
     }
 });
 
+// 필드 삭제
 router.post('/field/delete', async (req, res) => {
     try {
         const result = await jobModel.deleteField(req.body);
@@ -72,8 +68,9 @@ router.post('/field/delete', async (req, res) => {
 });
 
 /**
- * Data Management Routes
+ * 데이터(인스턴스) 관리 라우트
  */
+// 데이터 목록 조회
 router.get('/data/list', async (req, res) => {
     try {
         const result = await jobModel.getDataList(req.query);
@@ -84,6 +81,7 @@ router.get('/data/list', async (req, res) => {
     }
 });
 
+// 데이터 저장 (추가/수정)
 router.post('/data/save', async (req, res) => {
     try {
         const result = await jobModel.saveData(req.body);
@@ -94,6 +92,7 @@ router.post('/data/save', async (req, res) => {
     }
 });
 
+// 데이터 삭제
 router.post('/data/delete', async (req, res) => {
     try {
         const result = await jobModel.deleteData(req.body);

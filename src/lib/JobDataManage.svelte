@@ -39,7 +39,8 @@
     // 업무 목록 조회
     async function searchJobs() {
         selectedJob = "";
-        messages = [];
+        jobs = [];
+        if (!selectedProject) return;
         const queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
         try {
             const jobRes = await fetch(
@@ -55,6 +56,8 @@
     async function searchMessages() {
         selectedMessageId = ""; // Reset message selection
         dataList = []; // Reset data grid
+        messages = [];
+        if (!selectedJob) return;
         let queryParams = selectedProject ? `?prj_id=${selectedProject}` : "";
         queryParams += selectedJob ? `&job_id=${selectedJob}` : "";
 

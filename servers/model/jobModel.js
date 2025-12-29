@@ -1,40 +1,7 @@
 import mondb from '../db/dbconn.js';
 
 
-let messages = [
-    {
-        projectId: "1",
-        projectName: "프로젝트 A",
-        jobGroupId: "GRP001",
-        jobName: "업무 1", // For display/search convenience
-        jobId: "1",       // Link to job
-        messageId: "MSG0001",
-        messageNameKr: "테스트 전문 1",
-        messageNameEn: "Test Message 1",
-        messageType: "요청",
-        format: "JSON",
-        direction: "IN",
-        totalLength: "150",
-        description: "테스트를 위한 요청 전문",
-        status: "R",
-    },
-    {
-        projectId: "1",
-        projectName: "프로젝트 A",
-        jobGroupId: "GRP001",
-        jobName: "업무 1",
-        jobId: "1",
-        messageId: "MSG0002",
-        messageNameKr: "테스트 전문 2",
-        messageNameEn: "Test Message 2",
-        messageType: "응답",
-        format: "JSON",
-        direction: "OUT",
-        totalLength: "200",
-        description: "테스트를 위한 응답 전문",
-        status: "R",
-    }
-];
+
 
 let fields = [];
 // Example Field Structure:
@@ -51,7 +18,7 @@ const jobs = {
 
     /**
      * 전문 목록 조회
-     * @param {Object} req - Request body (for POST) or params
+     * @param {Object} req - 요청 파라미터 (prj_id, app_id 등)
      */
     getMessageList: async (req) => {
         let conn;
@@ -89,6 +56,10 @@ const jobs = {
         }
     },
 
+    /**
+     * 전문 저장 (추가 및 수정)
+     * @param {Array|Object} param - 저장할 전문 정보 리스트 또는 객체
+     */
     saveMessage: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let savedCount = 0;
@@ -170,24 +141,12 @@ const jobs = {
         }
     },
 
-    deleteMessage: async (param) => {
-        // param is list of items to delete
-        const inputList = Array.isArray(param) ? param : [param];
-        let deletedCount = 0;
 
-        inputList.forEach(inputMsg => {
-            const index = messages.findIndex(m => m.messageId === inputMsg.messageId);
-            if (index !== -1) {
-                messages.splice(index, 1);
-                deletedCount++;
-                // Also delete associated fields and data? For detailed mock, we might skip cascading for now.
-            }
-        });
-        return { count: deletedCount, message: "Messages deleted successfully" };
-    },
 
-    // --- Field Management ---
-
+    /**
+     * 필드 목록 조회
+     * @param {Object} req - 요청 파라미터
+     */
     getFieldList: async (req) => {
         let conn;
         try {
@@ -239,6 +198,10 @@ const jobs = {
         }
     },
 
+    /**
+     * 필드 저장 (추가 및 수정)
+     * @param {Array|Object} param - 저장할 필드 정보
+     */
     saveField: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let savedCount = 0;
@@ -343,6 +306,10 @@ const jobs = {
         }
     },
 
+    /**
+     * 필드 삭제
+     * @param {Array|Object} param - 삭제할 필드 정보
+     */
     deleteField: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let conn;
@@ -384,6 +351,10 @@ const jobs = {
 
     // --- Data Management (JobData) ---
 
+    /**
+     * 전문 데이터 데이터 조회 (JobData)
+     * @param {Object} req - 요청 파라미터 (mgs_id 등)
+     */
     getDataList: async (req) => {
         let conn = null;
         try {
@@ -418,6 +389,10 @@ const jobs = {
         }
     },
 
+    /**
+     * 전문 데이터 저장 (추가 및 수정)
+     * @param {Array|Object} param - 저장할 데이터 리스트 또는 객체
+     */
     saveData: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let savedCount = 0;
@@ -509,6 +484,10 @@ const jobs = {
         }
     },
 
+    /**
+     * 전문 데이터 삭제
+     * @param {Array|Object} param - 삭제할 데이터 리스트 또는 객체
+     */
     deleteData: async (param) => {
         const inputList = Array.isArray(param) ? param : [param];
         let deletedCount = 0;
