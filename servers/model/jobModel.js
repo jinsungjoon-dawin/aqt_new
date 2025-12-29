@@ -353,7 +353,7 @@ const jobs = {
 
     /**
      * 전문 데이터 데이터 조회 (JobData)
-     * @param {Object} req - 요청 파라미터 (mgs_id 등)
+     * @param {Object} req - 요청 파라미터 (msg_id 등)
      */
     getDataList: async (req) => {
         let conn = null;
@@ -388,7 +388,7 @@ const jobs = {
                 query += ` AND a.MSG_ID = ?`;
                 params.push(req.msg_id);
             }
-
+            const rows = await conn.query(query, params);
             return rows;
         } catch (error) {
             console.error('getDataList error:', error);
