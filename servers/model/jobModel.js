@@ -388,7 +388,7 @@ const jobs = {
                 query += ` AND a.MSG_ID = ?`;
                 params.push(req.msg_id);
             }
-            const rows = await conn.query(query, params);
+
             return rows;
         } catch (error) {
             console.error('getDataList error:', error);

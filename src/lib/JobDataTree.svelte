@@ -146,7 +146,6 @@
             ? messageAll.filter((msg) => msg.MSG_ID === selectedMessageId)
             : messageAll;
 
-        console.log(project, job, message);
         treeData = project.map((proj) => {
             // 현재 프로젝트에 속하고 로드된 업무만 포함
             // selectedProject가 설정된 경우, 해당 프로젝트의 업무만 로드되었을 가능성이 높음.
@@ -191,8 +190,6 @@
                 children: jobNodes,
             };
         });
-
-        console.log(treeData);
     }
 
     function toggleNode(node) {
@@ -211,7 +208,7 @@
         try {
             // JobDataManage와 동일하게 쿼리 파라미터 스타일 사용
             const res = await fetch(
-                `${$rooturl}/jobs/data/list?mgs_id=${node.id}`,
+                `${$rooturl}/jobs/data/list?msg_id=${node.id}&prj_id=${node.projectId}&app_id=${node.jobId}`,
             );
             const data = await res.json();
 
