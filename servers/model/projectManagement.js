@@ -148,29 +148,37 @@ const projectManagement = {
      * Get Business List (filtered by Search Type/Keyword)
      * Optional: filtered by projectId if needed, but currently "All" or "Search"
      */
-    getBusinessList: async (searchType, keyword) => {
+    getBusinessList: async (searchType, keyword, projectId) => {
         // Updated query to match the fields required by the format
         // Columns: pkey, id (Application ID), project_id, c_target_sys_c, c_application_c, c_module_c ...
         let sql = `
            SELECT PKEY, APP_ID, PRJ_ID, APPNM, MAIN_MGR, GUBUN, SCNT, HOST_IP, HOST_PORT, SVC_URI, SVC_KR_NM, SVC_EN_NM, SVC_KIND, CUMCNT, CRT_ID, CRT_DT, UDT_ID, UDT_DT
-			FROM aqt_business_tb
+ 			FROM aqt_business_tb
+            WHERE 1=1
         `;
         let params = [];
+
+        if (projectId) {
+            sql += ` AND PRJ_ID = ? `;
+            params.push(projectId);
+        }
 
         if (keyword) {
             // Adjust search logic as needed
             if (searchType === 'project_id') {
-                sql += ` WHERE PRJ_ID = ? `;
+                // If searchType is project_id, but we already filtered by projectId, they should match or this might be redundant.
+                // However, keep it for compatibility if searchType='project_id' is used without keyword filter elsewhere.
+                sql += ` AND PRJ_ID = ? `;
                 params.push(keyword);
             } else if (searchType === 'all') {
-                sql += ` WHERE (APPNM LIKE ? OR SVC_URI LIKE ? OR SVC_KR_NM LIKE ? OR SVC_EN_NM LIKE ?) `;
+                sql += ` AND (APPNM LIKE ? OR SVC_URI LIKE ? OR SVC_KR_NM LIKE ? OR SVC_EN_NM LIKE ?) `;
                 params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
             } else if (['APPNM', 'SVC_URI', 'SVC_KR_NM', 'SVC_EN_NM'].includes(searchType)) {
-                sql += ` WHERE ${searchType} LIKE ? `;
+                sql += ` AND ${searchType} LIKE ? `;
                 params.push(`%${keyword}%`);
             } else {
                 // Default fallback
-                sql += ` WHERE APPNM LIKE ? `;
+                sql += ` AND APPNM LIKE ? `;
                 params.push(`%${keyword}%`);
             }
         }

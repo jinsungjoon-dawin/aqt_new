@@ -70,7 +70,6 @@
             );
             if (res.ok) {
                 projects = await res.json();
-                console.log("projects:" + projects.getProjectList());
             } else {
                 console.error("Failed to fetch projects");
                 projects = []; // Clear or handle error
@@ -85,25 +84,29 @@
     async function fetchBusinessItems() {
         try {
             isLoading = true;
-            // Prioritize Keyword Search if exists
-            if (searchKeyword) {
-                const res = await fetch(
-                    `${$rooturl}/project/business/list?type=${searchType}&keyword=${searchKeyword}`,
-                );
-                if (res.ok) businessItems = await res.json();
-            } else if (selectedProject && selectedProject !== "프로젝트 선택") {
-                // Otherwise if project selected, load project items
-                const res = await fetch(
-                    `${$rooturl}/project/business/list?type=project_id&keyword=${selectedProject}`,
-                );
-                if (res.ok) {
-                    businessItems = await res.json();
-                } else {
-                    console.error("Failed to fetch business items");
-                    businessItems = [];
-                }
+
+            let url = `${$rooturl}/project/business/list?type=${searchType}&keyword=${searchKeyword}`;
+
+            // If a project is selected at the top, ALWAYS filter by it
+            if (selectedProject && selectedProject !== "프로젝트 선택") {
+                url += `&projectId=${selectedProject}`;
+            }
+
+            // However, if there's no keyword and no project selected, return empty as per current logic
+            if (
+                !searchKeyword &&
+                (!selectedProject || selectedProject === "프로젝트 선택")
+            ) {
+                businessItems = [];
+                isLoading = false;
+                return;
+            }
+
+            const res = await fetch(url);
+            if (res.ok) {
+                businessItems = await res.json();
             } else {
-                // Empty start
+                console.error("Failed to fetch business items");
                 businessItems = [];
             }
         } catch (error) {

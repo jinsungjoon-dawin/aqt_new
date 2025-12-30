@@ -54,8 +54,8 @@ router.delete('/delete/:id', async (req, res) => {
 // Get Business List
 router.get('/business/list', async (req, res) => {
     try {
-        const { type, keyword } = req.query;
-        const result = await projectManagement.getBusinessList(type, keyword);
+        const { type, keyword, projectId } = req.query;
+        const result = await projectManagement.getBusinessList(type, keyword, projectId);
         res.json(result);
     } catch (error) {
         console.error('Error fetching business list:', error);
