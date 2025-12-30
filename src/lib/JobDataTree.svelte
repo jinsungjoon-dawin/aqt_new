@@ -244,71 +244,74 @@
     class="container mx-auto p-4 lg:p-8 bg-gray-50 flex flex-col h-[calc(100vh-4.1rem)] gap-4"
 >
     <!-- Top Filter Section -->
-    <!-- Top Filter Section -->
-    <div
-        class="bg-white border border-gray-300 rounded shadow p-4 flex justify-between items-center gap-4"
-    >
-        <h2 class="text-xl font-bold text-gray-700">전문 데이터 트리</h2>
+    <div class="bg-white border border-gray-300 rounded shadow overflow-hidden">
+        <div
+            class="p-4 border-b border-gray-200 bg-gray-100 flex flex-wrap justify-between items-center gap-2"
+        >
+            <h2 class="text-xl font-bold text-gray-700">전문 데이터 트리</h2>
 
-        <div class="flex flex-wrap items-center gap-2">
-            <!-- Project Select -->
-            <div class="flex items-center">
-                <span class="text-gray-700 font-semibold px-2 text-sm"
-                    >프로젝트</span
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Project Select -->
+                <div class="flex items-center">
+                    <span class="text-gray-700 font-semibold px-2 text-sm"
+                        >프로젝트</span
+                    >
+                    <select
+                        bind:value={selectedProject}
+                        bind:this={projectSelectElement}
+                        on:change={searchJobs}
+                        class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
+                    >
+                        <option value="">프로젝트 선택</option>
+                        {#each projects as project}
+                            <option value={project.PRJ_ID}
+                                >{project.PRJ_NM}</option
+                            >
+                        {/each}
+                    </select>
+                </div>
+
+                <!-- Job Select -->
+                <div class="flex items-center">
+                    <span class="text-gray-700 font-semibold px-2 text-sm"
+                        >업무</span
+                    >
+                    <select
+                        bind:value={selectedJob}
+                        bind:this={jobSelectElement}
+                        on:change={searchMessages}
+                        class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
+                    >
+                        <option value="">업무 선택</option>
+                        {#each jobs as job}
+                            <option value={job.APP_ID}>{job.APPNM}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <!-- Message Select -->
+                <div class="flex items-center">
+                    <span class="text-gray-700 font-semibold px-2 text-sm"
+                        >전문</span
+                    >
+                    <select
+                        bind:value={selectedMessageId}
+                        class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[150px]"
+                    >
+                        <option value="">전문 선택</option>
+                        {#each messages as msg}
+                            <option value={msg.MSG_ID}>{msg.MSG_KR_NM}</option>
+                        {/each}
+                    </select>
+                </div>
+
+                <button
+                    on:click={handleSearch}
+                    class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-4 py-1 text-sm rounded border border-blue-300 hover:border-blue-400 transition ml-2"
                 >
-                <select
-                    bind:value={selectedProject}
-                    bind:this={projectSelectElement}
-                    on:change={searchJobs}
-                    class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
-                >
-                    <option value="">프로젝트 선택</option>
-                    {#each projects as project}
-                        <option value={project.PRJ_ID}>{project.PRJ_NM}</option>
-                    {/each}
-                </select>
+                    조회
+                </button>
             </div>
-
-            <!-- Job Select -->
-            <div class="flex items-center">
-                <span class="text-gray-700 font-semibold px-2 text-sm"
-                    >업무</span
-                >
-                <select
-                    bind:value={selectedJob}
-                    bind:this={jobSelectElement}
-                    on:change={searchMessages}
-                    class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[120px]"
-                >
-                    <option value="">업무 선택</option>
-                    {#each jobs as job}
-                        <option value={job.APP_ID}>{job.APPNM}</option>
-                    {/each}
-                </select>
-            </div>
-
-            <!-- Message Select -->
-            <div class="flex items-center">
-                <span class="text-gray-700 font-semibold px-2 text-sm"
-                    >전문</span
-                >
-                <select
-                    bind:value={selectedMessageId}
-                    class="border border-gray-300 rounded-sm px-2 py-1 text-sm focus:outline-none focus:border-blue-500 min-w-[150px]"
-                >
-                    <option value="">전문 선택</option>
-                    {#each messages as msg}
-                        <option value={msg.MSG_ID}>{msg.MSG_KR_NM}</option>
-                    {/each}
-                </select>
-            </div>
-
-            <button
-                on:click={handleSearch}
-                class="bg-white hover:bg-blue-50 text-blue-600 font-semibold hover:text-blue-700 px-4 py-1 text-sm rounded border border-blue-300 hover:border-blue-400 transition ml-2"
-            >
-                조회
-            </button>
         </div>
     </div>
 
