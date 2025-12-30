@@ -202,7 +202,7 @@
         try {
             // JobDataManage와 동일하게 쿼리 파라미터 스타일 사용
             const res = await fetch(
-                `${$rooturl}/jobs/field/list?msg_id=${node.id}&prj_id=${node.projectId}&app_id=${node.jobId}`,
+                `${$rooturl}/jobs/data/list?msg_id=${node.id}&prj_id=${node.projectId}&app_id=${node.jobId}`,
             );
             const data = await res.json();
 
@@ -214,14 +214,26 @@
                 // 여기서 관련 컬럼 표시.
 
                 // 표준 컬럼 + 내용/설명 선택
-
+                gridColumns = [
+                    "프로젝트 ID",
+                    "프로젝트명",
+                    "업무그룹 ID",
+                    "업무명",
+                    "전문 ID",
+                    "전문명",
+                    "전문데이터ID",
+                    "전문데이터",
+                    "설명",
+                ];
                 gridData = data;
             } else {
+                gridColumns = [];
                 gridData = [];
             }
         } catch (error) {
             console.error(error);
             gridData = [];
+            gridColumns = [];
         } finally {
             isLoading = false;
         }
@@ -307,7 +319,7 @@
     <div class="flex-1 flex gap-4 overflow-hidden">
         <!-- Left Panel: Tree View (30%) -->
         <div
-            class="w-[30%] shrink-0 bg-white border border-gray-300 rounded shadow flex flex-col"
+            class="w-[30%] bg-white border border-gray-300 rounded shadow flex flex-col"
         >
             <div class="p-3 border-b border-gray-200 bg-gray-100 font-bold">
                 전문 목록
@@ -397,7 +409,7 @@
 
         <!-- Right Panel: Data Grid (70%) -->
         <div
-            class="flex-1 min-w-0 bg-white border border-gray-300 rounded shadow flex flex-col"
+            class="flex-1 bg-white border border-gray-300 rounded shadow flex flex-col"
         >
             <div
                 class="p-3 border-b border-gray-200 bg-gray-100 font-bold flex justify-between items-center"
@@ -438,147 +450,75 @@
                     </div>
                 {:else}
                     <table
-                        class="min-w-[2000px] border-collapse text-sm whitespace-nowrap"
+                        class="min-w-full border-collapse text-sm whitespace-nowrap"
                     >
                         <thead
                             class="bg-gray-50 text-gray-700 sticky top-0 shadow"
                         >
                             <tr>
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >전문필드ID</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >필드명(영문)</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >필드명(한글)</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >필드타입</th
-                                >
-
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >필드설명</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >세그먼트</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >시작위치</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >필드길이</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >반복횟수</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >순서</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >필수여부</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >기본값</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >포맷/패턴</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >코드셋</th
-                                >
-                                <th
-                                    class="border-b border-r border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >마스킹여부</th
-                                >
-                                <th
-                                    class="border-b border-gray-300 px-2 py-1 text-center font-semibold bg-gray-100"
-                                    >비고</th
-                                >
+                                {#each gridColumns as col}
+                                    <th
+                                        class="border-b border-r border-gray-300 px-4 py-2 text-center"
+                                        >{col}</th
+                                    >
+                                {/each}
                             </tr>
                         </thead>
                         <tbody>
-                            {#each gridData as field, i}
+                            {#each gridData as row, i}
                                 <tr
                                     class="hover:bg-blue-50 transition-colors border-b border-gray-200"
                                 >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.MSGFLD_ID}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-left"
-                                        >{field.FLD_EN_NM}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-left"
-                                        >{field.FLD_KR_NM}</td
+                                        >{row.PRJ_ID || ""}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.FLD_TYPE}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-left"
-                                        >{field.FLD_CMT}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.FLD_SGMT}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-right"
-                                        >{field.ST_POS}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-right"
-                                        >{field.FLD_LEN}</td
-                                    >
-                                    <td
-                                        class="border-r border-gray-200 px-2 py-1 text-right"
-                                        >{field.REPET_NUM}</td
+                                        >{projects.find(
+                                            (p) => p.PRJ_ID == row.PRJ_ID,
+                                        )?.PRJ_NM || ""}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.FLD_ORDER}</td
+                                        >{row.APP_ID || ""}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.ESSEN_YN}</td
+                                        >{row.APPNM}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.DEFAULT_VAL}</td
+                                        >{row.MSG_ID || ""}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.FLD_FORMAT}</td
+                                        >{row.MSG_KR_NM}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.FLD_CDSET}</td
+                                        >{row.MSGDT_ID || ""}</td
                                     >
                                     <td
-                                        class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{field.MASK_YN}</td
-                                    >
-                                    <td class="px-2 py-1 text-left"
-                                        >{field.META_CONV_RULE}</td
-                                    >
+                                        class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                        contenteditable="true"
+                                        bind:textContent={row.FIXEDLEN_VAL}
+                                        on:input={() => {
+                                            if (row.status === "R")
+                                                row.status = "U";
+                                            row.isChecked = true;
+                                        }}
+                                    ></td>
+                                    <td
+                                        class="border-r border-gray-200 px-2 py-1 text-center p-0"
+                                        contenteditable="true"
+                                        bind:textContent={row.COMMENT}
+                                        on:input={() => {
+                                            if (row.status === "R")
+                                                row.status = "U";
+                                            row.isChecked = true;
+                                        }}
+                                    ></td>
                                 </tr>
                             {/each}
                         </tbody>

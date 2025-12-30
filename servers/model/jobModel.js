@@ -153,12 +153,17 @@ const jobs = {
             conn = await mondb.getConnection();
 
             let query = `SELECT 
-                a.PKEY, a.MSGFLD_ID, a.PRJ_ID, a.APP_ID,b.APPNM, a.MSG_ID, 
+                a.PKEY, a.MSGFLD_ID, a.PRJ_ID, a.APP_ID, a.MSG_ID, 
                 a.FLD_KR_NM, a.FLD_EN_NM, a.FLD_TYPE, a.FLD_LEN, a.FLD_CMT, 
                 a.FLD_SGMT, a.ST_POS, a.FLD_DEPTH, a.REPET_NUM, a.FLD_ORDER, 
-                a.ESSEN_YN, a.DEFAULT_VAL, a.FLD_FORMAT, a.FLD_CDSET, a.MASK_YN, a.META_CONV_RULE
-            FROM aqt_messagefield_tb a
-            join aqt_business_tb b on b.prj_id = a.prj_id and b.app_id = a.app_id
+                a.ESSEN_YN, a.DEFAULT_VAL, a.FLD_FORMAT, a.FLD_CDSET, a.MASK_YN, a.META_CONV_RULE,
+                d.PRJ_NM,
+                c.APPNM, 
+                b.MSG_KR_NM 
+            FROM aqt_messagefield_tb  a 
+                join aqt_message_tb b on a.PRJ_ID = b.PRJ_ID  and a.APP_ID = b.APP_ID and a.MSG_ID = b.MSG_ID 
+                join aqt_business_tb c on a.PRJ_ID = c.PRJ_ID  and a.APP_ID = c.APP_ID  
+                join aqt_project_tb d on a.PRJ_ID = d.PRJ_ID 
             WHERE 1=1`;
 
             const params = [];
@@ -186,7 +191,6 @@ const jobs = {
             }
             // 순서 정렬
             query += ` ORDER BY PKEY ASC`;
-            console.log(query, params);
             const rows = await conn.query(query, params);
             return rows;
 
@@ -197,6 +201,7 @@ const jobs = {
             if (conn) conn.release();
         }
     },
+
 
     /**
      * 필드 저장 (추가 및 수정)
