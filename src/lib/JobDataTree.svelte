@@ -482,9 +482,7 @@
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{jobs.find(
-                                            (j) => j.APP_ID == row.APP_ID,
-                                        )?.APPNM || ""}</td
+                                        >{row.APPNM}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
@@ -492,9 +490,7 @@
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"
-                                        >{messages.find(
-                                            (m) => m.MSG_ID == row.MSG_ID,
-                                        )?.MSG_KR_NM || ""}</td
+                                        >{row.MSG_KR_NM}</td
                                     >
                                     <td
                                         class="border-r border-gray-200 px-2 py-1 text-center"

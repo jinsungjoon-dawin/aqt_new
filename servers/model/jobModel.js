@@ -186,7 +186,7 @@ const jobs = {
             }
             // 순서 정렬
             query += ` ORDER BY PKEY ASC`;
-
+            console.log(query, params);
             const rows = await conn.query(query, params);
             return rows;
 
