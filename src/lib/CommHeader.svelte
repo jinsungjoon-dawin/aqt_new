@@ -7,95 +7,128 @@
 
     // Top Form Data
     let currentHeader = {
+        pkey: "",
         project: "",
         job: "",
         comm_header_id: "",
         comm_header_name_kr: "",
         comm_header_name_en: "",
-        format: "Fixed",
-        direction: "Inbound",
+        msg_type: "",
+        format: "1",
+        direction: "1",
         total_length: "",
         description: "",
     };
 
     // Filters for Bottom Grid
+    let projects = [];
+    let businesses = [];
+    let searchProjectId = "";
+    let searchAppId = "";
     let searchType = "all";
     let searchKeyword = "";
     let selectedIds = new Set();
 
-    onMount(() => {
-        // Mock Data
-        commHeaderList = [
-            {
-                id: "CH001",
-                project_name: "Project A",
-                job_group: "Job A",
-                target_sys: "Sys 1",
-                comm_header_id: "CH001",
-                comm_header_name: "Header 1",
-                field_id: "F001",
-                field_name: "Length",
-                field_name_en: "Len",
-                field_name_kr: "길이",
-                field_type: "Num",
-                field_length: "4",
-                field_desc: "Total Length",
-                segment: "S1",
-                start_pos: "0",
-                seq: "1",
-                mandatory: "Y",
-                default: "0000",
-                format: "",
-                codeset: "",
-                masking: "N",
-                note: "",
-            },
-            {
-                id: "CH002",
-                project_name: "Project A",
-                job_group: "Job A",
-                target_sys: "Sys 1",
-                comm_header_id: "CH001",
-                comm_header_name: "Header 1",
-                field_id: "F002",
-                field_name: "Type",
-                field_name_en: "Type",
-                field_name_kr: "유형",
-                field_type: "Char",
-                field_length: "2",
-                field_desc: "Msg Type",
-                segment: "S1",
-                start_pos: "4",
-                seq: "2",
-                mandatory: "Y",
-                default: "TX",
-                format: "",
-                codeset: "",
-                masking: "N",
-                note: "",
-            },
-        ];
+    onMount(async () => {
+        await fetchProjects();
+        await fetchBusinesses();
     });
 
-    async function handleTopSearch() {
-        // Search specific header details
+    async function fetchProjects() {
         try {
-            const res = await fetch(
-                `${$rooturl}/commHeader/detail?project=${currentHeader.project}&job=${currentHeader.job}`,
-            );
+            const res = await fetch(`${$rooturl}/project/list`);
             if (res.ok) {
-                const data = await res.json();
-                currentHeader = { ...currentHeader, ...data }; // Update form
+                projects = await res.json();
             }
         } catch (e) {
             console.error(e);
         }
     }
 
-    async function fetchCommHeaders() {
+    async function fetchBusinesses() {
+        try {
+            const res = await fetch(`${$rooturl}/project/business/list`);
+            if (res.ok) {
+                businesses = await res.json();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // Reset app when project changes (Search only)
+    function handleSearchProjectChange() {
+        searchAppId = "";
+        fetchCommHeaders();
+    }
+
+    // Reset app when project changes (Top only)
+    function handleTopProjectChange() {
+        currentHeader.job = "";
+    }
+
+    async function handleTopSearch() {
+        if (!searchProjectId || !searchAppId) {
+            alert("프로젝트와 업무를 모두 선택해야 조회가 가능합니다.");
+            return;
+        }
+
+        searchKeyword = ""; // Clear specific keyword search when searching by Project/Job
+        searchType = "all";
+
+        await fetchCommHeaders();
+
+        // Then fetch detail
         try {
             const res = await fetch(
-                `${$rooturl}/commHeader/list?type=${searchType}&keyword=${searchKeyword}`,
+                `${$rooturl}/commHeader/detail?prj_id=${searchProjectId}&app_id=${searchAppId}`,
+            );
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.PKEY) {
+                    currentHeader = {
+                        pkey: data.PKEY,
+                        project: data.PRJ_ID,
+                        job: data.APP_ID,
+                        comm_header_id: data.COMMHD_ID || "",
+                        comm_header_name_kr: data.COMMHD_KR_NM || "",
+                        comm_header_name_en: data.COMMHD_EN_NM || "",
+                        msg_type: data.MSG_TYPE ? String(data.MSG_TYPE) : "",
+                        format: String(data.FORMAT_GB || "1"),
+                        direction: String(data.DIREC_GB || "1"),
+                        total_length: data.TOT_LEN || "",
+                        description: data.COMMENT || "",
+                    };
+                } else {
+                    // When no data found, clear form but set project/job to searched ones
+                    resetForm();
+                    currentHeader.project = searchProjectId;
+                    currentHeader.job = searchAppId;
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function handleSearchProjectChangeTop() {
+        searchAppId = "";
+    }
+
+    async function fetchCommHeaders() {
+        if (!searchProjectId || !searchAppId) {
+            alert("상단에서 프로젝트와 업무를 먼저 조회해 주세요.");
+            return;
+        }
+        try {
+            const params = new URLSearchParams({
+                type: searchType,
+                keyword: searchKeyword,
+                prj_id: searchProjectId,
+                app_id: searchAppId,
+            });
+            const res = await fetch(
+                `${$rooturl}/commHeader/list?${params.toString()}`,
             );
             if (res.ok) {
                 commHeaderList = await res.json();
@@ -134,13 +167,15 @@
 
     function resetForm() {
         currentHeader = {
+            pkey: "",
             project: "",
             job: "",
             comm_header_id: "",
             comm_header_name_kr: "",
             comm_header_name_en: "",
-            format: "Fixed",
-            direction: "Inbound",
+            msg_type: "",
+            format: "1",
+            direction: "1",
             total_length: "",
             description: "",
         };
@@ -149,7 +184,7 @@
     // Grid functions
     function toggleAll(event) {
         if (event.target.checked) {
-            selectedIds = new Set(commHeaderList.map((item) => item.id));
+            selectedIds = new Set(commHeaderList.map((item) => item.PKEY));
         } else {
             selectedIds = new Set();
         }
@@ -166,25 +201,109 @@
     }
 
     function handleGridAdd() {
-        alert("추가 버튼 클릭");
+        if (!searchProjectId || !searchAppId) {
+            alert("상단에서 프로젝트와 업무를 먼저 조회해 주세요.");
+            return;
+        }
+        const project = projects.find((p) => p.PRJ_ID == searchProjectId);
+
+        // Find max PKEY and max COMMHDFLD_ID in current list
+        let maxPkey = 0;
+        let maxFldNum = 0;
+        commHeaderList.forEach((item) => {
+            if (item.PKEY && !isNaN(item.PKEY) && item.PKEY > maxPkey)
+                maxPkey = item.PKEY;
+            if (item.COMMHDFLD_ID && item.COMMHDFLD_ID.startsWith("FLD")) {
+                const num = parseInt(item.COMMHDFLD_ID.replace("FLD", ""), 10);
+                if (!isNaN(num) && num > maxFldNum) maxFldNum = num;
+            }
+        });
+
+        // Calculate nextPkey and nextFldId
+        const nextPkey = maxPkey + 1;
+        const nextFldId = "FLD" + String(maxFldNum + 1).padStart(11, "0");
+
+        const newItem = {
+            PKEY: nextPkey, // Sequential unique ID
+            COMMHDFLD_ID: nextFldId,
+            PRJ_ID: searchProjectId,
+            PRJ_NM: project ? project.PRJ_NM : "",
+            APP_ID: searchAppId,
+            COMMHD_ID: currentHeader.comm_header_id,
+            COMMHD_KR_NM: currentHeader.comm_header_name_kr,
+            FLD_KR_NM: "",
+            FLD_EN_NM: "",
+            FLD_TYPE: "",
+            FLD_LEN: "",
+            FLD_CMT: "",
+            FLD_SGMT: "",
+            ST_POS: "",
+            FLD_ORDER: "",
+            ESSEN_YN: "",
+            DEFAULT_VAL: "",
+            FLD_FORMAT: "",
+            FLD_CDSET: "",
+            MASK_YN: "",
+            META_CONV_RULE: "",
+            isNew: true,
+        };
+        commHeaderList = [newItem, ...commHeaderList];
+        selectedIds.add(nextPkey);
+        selectedIds = selectedIds;
     }
 
-    function handleGridDelete() {
-        alert("삭제 버튼 클릭: " + Array.from(selectedIds).join(", "));
+    async function handleGridDelete() {
+        if (selectedIds.size === 0) {
+            alert("삭제할 항목을 선택해주세요.");
+            return;
+        }
+
+        if (!confirm(`선택한 ${selectedIds.size}건을 삭제하시겠습니까?`))
+            return;
+
+        try {
+            for (let id of selectedIds) {
+                const res = await fetch(`${$rooturl}/commHeader/delete/${id}`, {
+                    method: "DELETE",
+                });
+                if (!res.ok) {
+                    const text = await res.text();
+                    console.error(`Failed to delete PKEY ${id}: ${text}`);
+                }
+            }
+            alert("삭제되었습니다.");
+            selectedIds = new Set();
+            fetchCommHeaders();
+        } catch (e) {
+            console.error(e);
+            alert("삭제 중 오류가 발생했습니다.");
+        }
     }
 
     async function handleGridSave() {
-        if (!confirm("필드 리스트를 저장하시겠습니까?")) return;
+        const itemsToSave = commHeaderList.filter((item) =>
+            selectedIds.has(item.PKEY),
+        );
+
+        if (itemsToSave.length === 0) {
+            alert("저장할 항목을 선택해주세요.");
+            return;
+        }
+
+        if (!confirm(`선택한 ${itemsToSave.length}건을 저장하시겠습니까?`))
+            return;
 
         try {
             const res = await fetch(`${$rooturl}/commHeader/saveList`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(commHeaderList),
+                body: JSON.stringify(itemsToSave),
             });
 
             if (res.ok) {
                 alert("리스트가 저장되었습니다.");
+                selectedIds = new Set();
+                fetchCommHeaders();
             } else {
                 const text = await res.text();
                 alert(`리스트 저장 실패: ${text}`);
@@ -196,16 +315,100 @@
     }
 
     function handleExcelDownload() {
-        const ws = XLSX.utils.json_to_sheet(commHeaderList);
+        const itemsToExport = commHeaderList.map((item) => {
+            const {
+                PKEY,
+                COMMHDFLD_ID,
+                PRJ_ID,
+                APP_ID,
+                COMMHD_ID,
+                COMMHD_KR_NM,
+                ...rest
+            } = item;
+            return rest;
+        });
+        const ws = XLSX.utils.json_to_sheet(itemsToExport);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "CommHeaderList");
         XLSX.writeFile(wb, "CommHeaderList.xlsx");
     }
 
+    let fileInput;
+
+    function handleExcelUpload() {
+        if (!searchProjectId || !searchAppId) {
+            alert("상단에서 프로젝트와 업무를 먼저 조회해 주세요.");
+            return;
+        }
+        fileInput.click();
+    }
+
+    async function onFileSelected(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json.length > 0) {
+                const project = projects.find(
+                    (p) => p.PRJ_ID == searchProjectId,
+                );
+
+                // Find max PKEY and max COMMHDFLD_ID
+                let maxPkey = 0;
+                let maxFldNum = 0;
+                commHeaderList.forEach((item) => {
+                    if (item.PKEY && !isNaN(item.PKEY) && item.PKEY > maxPkey)
+                        maxPkey = item.PKEY;
+                    if (
+                        item.COMMHDFLD_ID &&
+                        item.COMMHDFLD_ID.startsWith("FLD")
+                    ) {
+                        const num = parseInt(
+                            item.COMMHDFLD_ID.replace("FLD", ""),
+                            10,
+                        );
+                        if (!isNaN(num) && num > maxFldNum) maxFldNum = num;
+                    }
+                });
+
+                const newItems = json.map((row) => {
+                    maxPkey++;
+                    maxFldNum++;
+                    const nextFldId =
+                        "FLD" + String(maxFldNum).padStart(11, "0");
+                    return {
+                        ...row,
+                        PKEY: maxPkey,
+                        COMMHDFLD_ID: nextFldId,
+                        PRJ_ID: searchProjectId,
+                        PRJ_NM: project ? project.PRJ_NM : "",
+                        APP_ID: searchAppId,
+                        COMMHD_ID: currentHeader.comm_header_id,
+                        COMMHD_KR_NM: currentHeader.comm_header_name_kr,
+                        isNew: true,
+                    };
+                });
+
+                commHeaderList = [...newItems, ...commHeaderList];
+                newItems.forEach((item) => selectedIds.add(item.PKEY));
+                selectedIds = selectedIds;
+                alert(`${newItems.length}건이 업로드되었습니다.`);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+        event.target.value = "";
+    }
+
     function handleRowClick(item) {
-        // Map grid data to form (simplified)
-        currentHeader.comm_header_id = item.comm_header_id;
-        currentHeader.comm_header_name_kr = item.comm_header_name;
+        // Row click no longer populates the top form.
+        // It is now driven by search criteria.
     }
 </script>
 
@@ -228,10 +431,13 @@
                     >
                     <select
                         class="border border-gray-300 rounded px-2 py-1 text-sm"
-                        bind:value={currentHeader.project}
+                        bind:value={searchProjectId}
+                        on:change={handleSearchProjectChangeTop}
                     >
                         <option value="">프로젝트 선택</option>
-                        <option value="P001">Project A</option>
+                        {#each projects as prj}
+                            <option value={prj.PRJ_ID}>{prj.PRJ_NM}</option>
+                        {/each}
                     </select>
                 </div>
                 <div class="flex items-center">
@@ -241,10 +447,12 @@
                     >
                     <select
                         class="border border-gray-300 rounded px-2 py-1 text-sm"
-                        bind:value={currentHeader.job}
+                        bind:value={searchAppId}
                     >
                         <option value="">업무 선택</option>
-                        <option value="J001">Job A</option>
+                        {#each businesses.filter((b) => !searchProjectId || b.PRJ_ID == searchProjectId) as biz}
+                            <option value={biz.APP_ID}>{biz.APPNM}</option>
+                        {/each}
                     </select>
                 </div>
             </div>
@@ -273,9 +481,13 @@
                 >
                 <select
                     class="flex-1 border border-gray-300 py-1 px-2"
-                    disabled
+                    bind:value={currentHeader.project}
+                    on:change={handleTopProjectChange}
                 >
-                    <option>프로젝트 선택</option>
+                    <option value="">프로젝트 선택</option>
+                    {#each projects as prj}
+                        <option value={prj.PRJ_ID}>{prj.PRJ_NM}</option>
+                    {/each}
                 </select>
             </div>
             <div class="flex items-center">
@@ -285,9 +497,12 @@
                 >
                 <select
                     class="flex-1 border border-gray-300 py-1 px-2"
-                    disabled
+                    bind:value={currentHeader.job}
                 >
-                    <option>업무 선택</option>
+                    <option value="">업무 선택</option>
+                    {#each businesses.filter((b) => !currentHeader.project || b.PRJ_ID == currentHeader.project) as biz}
+                        <option value={biz.APP_ID}>{biz.APPNM}</option>
+                    {/each}
                 </select>
             </div>
             <div class="flex items-center">
@@ -298,7 +513,7 @@
                 <input
                     type="text"
                     class="flex-1 border border-gray-300 py-1 px-2 bg-gray-100 text-gray-500"
-                    placeholder="CommHeader 자동생성"
+                    placeholder="COM00000000001 (자동생성)"
                     disabled
                     bind:value={currentHeader.comm_header_id}
                 />
@@ -334,10 +549,13 @@
                     class="w-32 font-bold bg-gray-100 py-1 px-2 border border-gray-300 block text-right"
                     >전문유형</label
                 >
-                <select class="flex-1 border border-gray-300 py-1 px-2">
-                    <option>요청/응답 선택</option>
-                    <option>Request</option>
-                    <option>Response</option>
+                <select
+                    class="flex-1 border border-gray-300 py-1 px-2"
+                    bind:value={currentHeader.msg_type}
+                >
+                    <option value="">요청/응답 선택</option>
+                    <option value="1">요청</option>
+                    <option value="2">응답</option>
                 </select>
             </div>
 
@@ -351,9 +569,9 @@
                     class="flex-1 border border-gray-300 py-1 px-2"
                     bind:value={currentHeader.format}
                 >
-                    <option value="Fixed">Fixed</option>
-                    <option value="json">json</option>
-                    <option value="xml">xml</option>
+                    <option value="1">FIXED</option>
+                    <option value="2">JSON</option>
+                    <option value="3">XML</option>
                 </select>
             </div>
             <div class="flex items-center">
@@ -365,8 +583,8 @@
                     class="flex-1 border border-gray-300 py-1 px-2"
                     bind:value={currentHeader.direction}
                 >
-                    <option value="Inbound">Inbound</option>
-                    <option value="Outbound">Outbound</option>
+                    <option value="1">Inbound</option>
+                    <option value="2">Outbound</option>
                 </select>
             </div>
             <div class="flex items-center">
@@ -400,16 +618,14 @@
     <!-- Bottom Section: Grid -->
     <div class="bg-white p-4 shadow border border-gray-300">
         <div class="flex justify-between items-center mb-4">
-            <div class="space-x-2">
-                <button
-                    class="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1 text-sm rounded"
-                    >엑셀 업로드</button
-                >
-                <button
-                    on:click={handleExcelDownload}
-                    class="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-3 py-1 text-sm rounded"
-                    >엑셀다운로드</button
-                >
+            <div class="flex items-center">
+                <input
+                    type="file"
+                    class="hidden"
+                    accept=".xlsx, .xls"
+                    bind:this={fileInput}
+                    on:change={onFileSelected}
+                />
             </div>
 
             <div class="flex space-x-2 items-center">
@@ -418,7 +634,9 @@
                     bind:value={searchType}
                 >
                     <option value="all">전체</option>
-                    <option value="comm_header_name">CommHeader명</option>
+                    <option value="FLD_EN_NM">필드명(영문)</option>
+                    <option value="FLD_KR_NM">필드명(한글)</option>
+                    <option value="FLD_DESC">필드설명</option>
                 </select>
                 <input
                     type="text"
@@ -446,6 +664,16 @@
                     class="bg-white hover:bg-gray-100 text-blue-600 border border-blue-600 px-3 py-1 text-sm rounded"
                     >저장</button
                 >
+                <button
+                    on:click={handleExcelUpload}
+                    class="bg-white hover:bg-gray-100 text-green-600 border border-green-600 px-3 py-1 text-sm rounded"
+                    >엑셀 업로드</button
+                >
+                <button
+                    on:click={handleExcelDownload}
+                    class="bg-white hover:bg-gray-100 text-green-600 border border-green-600 px-3 py-1 text-sm rounded"
+                    >엑셀다운로드</button
+                >
             </div>
         </div>
 
@@ -459,68 +687,95 @@
                         <th class="border border-gray-300 px-2 py-1 w-8"
                             ><input type="checkbox" on:change={toggleAll} /></th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[100px]"
                             >프로젝트 ID</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
                             >프로젝트명</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[120px]"
                             >업무그룹 ID</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[180px]"
                             >c_target_sys_c (업무명)</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
                             >CommHeader ID</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[200px]"
                             >CommHeader Name</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
                             >CommHeader필드 ID</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
-                            >CommHeader필드명</th
-                        >
-                        <th class="border border-gray-300 px-2 py-1"
+
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
                             >필드명(영문)</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
                             >필드명(한글)</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[100px]"
                             >필드타입</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[100px]"
                             >필드자리수</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[200px]"
                             >필드설명</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[180px]"
                             >세그먼트</th
                         >
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[100px]"
                             >시작위치</th
                         >
-                        <th class="border border-gray-300 px-2 py-1">순서</th>
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[80px]"
+                            >순서</th
+                        >
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[100px]"
                             >필수여부</th
                         >
-                        <th class="border border-gray-300 px-2 py-1">기본값</th>
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[120px]"
+                            >기본값</th
+                        >
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
                             >포맷/패턴</th
                         >
-                        <th class="border border-gray-300 px-2 py-1">코드셋</th>
-                        <th class="border border-gray-300 px-2 py-1"
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[150px]"
+                            >코드셋</th
+                        >
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[100px]"
                             >마스킹여부</th
                         >
-                        <th class="border border-gray-300 px-2 py-1">비고</th>
+                        <th
+                            class="border border-gray-300 px-2 py-1 min-w-[200px]"
+                            >비고</th
+                        >
                     </tr>
                 </thead>
                 <tbody class="bg-white">
-                    {#each commHeaderList as item (item.id)}
+                    {#each commHeaderList as item (item.PKEY)}
                         <tr
                             class="hover:bg-blue-50 cursor-pointer"
                             on:click={() => handleRowClick(item)}
@@ -531,75 +786,149 @@
                             >
                                 <input
                                     type="checkbox"
-                                    checked={selectedIds.has(item.id)}
-                                    on:change={() => toggleOne(item.id)}
+                                    checked={selectedIds.has(item.PKEY)}
+                                    on:change={() => toggleOne(item.PKEY)}
                                 />
                             </td>
-                            <td class="border border-gray-300 px-2 py-1">P01</td
+                            <td
+                                class="border border-gray-300 px-1 py-1 disabled"
                             >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.project_name}</td
+                                {item.PRJ_ID}
+                            </td>
+                            <td
+                                class="border border-gray-300 px-1 py-1 disabled"
                             >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.job_group}</td
+                                {item.PRJ_NM}
+                            </td>
+                            <td
+                                class="border border-gray-300 px-1 py-1 disabled"
                             >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.target_sys}</td
+                                {item.APP_ID}
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                {businesses.find((b) => b.APP_ID == item.APP_ID)
+                                    ?.APPNM || ""}
+                            </td>
+                            <td
+                                class="border border-gray-300 px-1 py-1 disabled"
                             >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.comm_header_id}</td
+                                {item.COMMHD_ID}
+                            </td>
+                            <td
+                                class="border border-gray-300 px-1 py-1 disabled"
                             >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.comm_header_name}</td
+                                {item.COMMHD_KR_NM}
+                            </td>
+                            <td
+                                class="border border-gray-300 px-1 py-1 disabled"
                             >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_id}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_name}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_name_en}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_name_kr}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_type}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_length}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.field_desc}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.segment}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.start_pos}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.seq}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.mandatory}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.default}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.format}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.codeset}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.masking}</td
-                            >
-                            <td class="border border-gray-300 px-2 py-1"
-                                >{item.note}</td
-                            >
+                                {item.COMMHDFLD_ID}
+                            </td>
+
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_EN_NM}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_KR_NM}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_TYPE}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_LEN}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_CMT}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <select
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_SGMT}
+                                >
+                                    <option value=""></option>
+                                    <option value="1">1:ChlHeader</option>
+                                    <option value="2">2:CommonHeader</option>
+                                    <option value="3">3:DataHeader</option>
+                                    <option value="4">4:Databody</option>
+                                    <option value="5">5:Tail</option>
+                                </select>
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.ST_POS}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_ORDER}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.ESSEN_YN}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.DEFAULT_VAL}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_FORMAT}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.FLD_CDSET}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.MASK_YN}
+                                />
+                            </td>
+                            <td class="border border-gray-300 px-1 py-1">
+                                <input
+                                    type="text"
+                                    class="w-full bg-transparent border-none text-center outline-none"
+                                    bind:value={item.META_CONV_RULE}
+                                />
+                            </td>
                         </tr>
                     {/each}
                     {#if commHeaderList.length === 0}
