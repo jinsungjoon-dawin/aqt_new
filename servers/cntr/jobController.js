@@ -45,6 +45,18 @@ router.get('/field/list', async (req, res) => {
     }
 });
 
+router.get('/field/list', async (req, res) => {
+    try {
+        const result = await jobModel.getFieldList(req.query);
+        res.json(result);
+    } catch (error) {
+        console.error('Error fetching field list:', error);
+        res.status(500).json({ message: 'Error fetching field list', error: error.message });
+    }
+});
+
+
+
 // 필드 저장 (추가/수정)
 router.post('/field/save', async (req, res) => {
     try {
