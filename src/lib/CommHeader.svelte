@@ -29,6 +29,21 @@
     let searchKeyword = "";
     let selectedIds = new Set();
 
+    // Pagination State
+    let currentPage = 1;
+    let itemsPerPage = 12;
+    $: totalPages = Math.ceil(commHeaderList.length / itemsPerPage);
+    $: paginatedList = commHeaderList.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage,
+    );
+
+    function goToPage(page) {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+        }
+    }
+
     onMount(async () => {
         await fetchProjects();
         await fetchBusinesses();
@@ -132,6 +147,7 @@
             );
             if (res.ok) {
                 commHeaderList = await res.json();
+                currentPage = 1; // Reset to first page on search
             }
         } catch (error) {
             console.error(error);
@@ -250,6 +266,7 @@
         commHeaderList = [newItem, ...commHeaderList];
         selectedIds.add(nextPkey);
         selectedIds = selectedIds;
+        currentPage = 1; // Jump to first page to see the new row
     }
 
     async function handleGridDelete() {
@@ -666,7 +683,7 @@
                 >
                 <button
                     on:click={handleExcelUpload}
-                    class="bg-white hover:bg-gray-100 text-green-600 border border-green-600 px-3 py-1 text-sm rounded"
+                    class="bg-white hover:bg-gray-100 text-blue-600 border border-green-600 px-3 py-1 text-sm rounded"
                     >엑셀 업로드</button
                 >
                 <button
@@ -775,7 +792,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white">
-                    {#each commHeaderList as item (item.PKEY)}
+                    {#each paginatedList as item (item.PKEY)}
                         <tr
                             class="hover:bg-blue-50 cursor-pointer"
                             on:click={() => handleRowClick(item)}
@@ -943,5 +960,64 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls -->
+        {#if totalPages > 1}
+            <div class="flex justify-center items-center mt-4 space-x-1">
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                >
+                    처음
+                </button>
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    이전
+                </button>
+
+                {#each Array(Math.min(5, totalPages)) as _, i}
+                    {@const pageNum =
+                        totalPages <= 5
+                            ? i + 1
+                            : Math.min(
+                                  Math.max(currentPage - 2, 1),
+                                  totalPages - 4,
+                              ) + i}
+                    <button
+                        class="px-3 py-1 border border-gray-300 rounded text-sm {currentPage ===
+                        pageNum
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'hover:bg-gray-100'}"
+                        on:click={() => goToPage(pageNum)}
+                    >
+                        {pageNum}
+                    </button>
+                {/each}
+
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                >
+                    다음
+                </button>
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                >
+                    마지막
+                </button>
+
+                <span class="ml-4 text-sm text-gray-600">
+                    Page {currentPage} of {totalPages} (Total {commHeaderList.length}
+                    items)
+                </span>
+            </div>
+        {/if}
     </div>
 </div>

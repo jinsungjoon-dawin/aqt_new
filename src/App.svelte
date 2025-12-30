@@ -47,10 +47,10 @@
         { pageNm: "Job Config", cnm: Job },
       ],
     },
-    // {
-    //   pageNm: "사용자 업로드 관리",
-    //   cnm: UserUploadManagement,
-    // },
+    {
+      pageNm: "사용자 업로드 관리",
+      cnm: UserUploadManagement,
+    },
   ];
 
   function getToDate() {

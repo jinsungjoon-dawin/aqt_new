@@ -43,6 +43,21 @@
     let searchKeyword = "";
     let selectedIds = new Set();
 
+    // Pagination State
+    let currentPage = 1;
+    let itemsPerPage = 9;
+    $: totalPages = Math.ceil(businessItems.length / itemsPerPage);
+    $: paginatedList = businessItems.slice(
+        (currentPage - 1) * itemsPerPage,
+        currentPage * itemsPerPage,
+    );
+
+    function goToPage(page) {
+        if (page >= 1 && page <= totalPages) {
+            currentPage = page;
+        }
+    }
+
     // Top Select Selection
     let selectedTopProjectId = "";
 
@@ -105,6 +120,7 @@
             const res = await fetch(url);
             if (res.ok) {
                 businessItems = await res.json();
+                currentPage = 1; // Reset to first page on search
             } else {
                 console.error("Failed to fetch business items");
                 businessItems = [];
@@ -335,6 +351,7 @@
                 .substr(2, 9)}`,
         };
         businessItems = [newRow, ...businessItems];
+        currentPage = 1; // Jump to first page to see the new row
 
         // Auto-select the new row
         selectedIds.add(newRow._tempId);
@@ -1024,7 +1041,7 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white">
-                    {#each businessItems as item (item.PKEY || item._tempId)}
+                    {#each paginatedList as item (item.PKEY || item._tempId)}
                         <tr class="hover:bg-blue-50">
                             <td
                                 class="border border-gray-300 px-2 py-1 text-center"
@@ -1143,6 +1160,65 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination Controls -->
+        {#if totalPages > 1}
+            <div class="flex justify-center items-center mt-4 space-x-1">
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(1)}
+                    disabled={currentPage === 1}
+                >
+                    처음
+                </button>
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    이전
+                </button>
+
+                {#each Array(Math.min(5, totalPages)) as _, i}
+                    {@const pageNum =
+                        totalPages <= 5
+                            ? i + 1
+                            : Math.min(
+                                  Math.max(currentPage - 2, 1),
+                                  totalPages - 4,
+                              ) + i}
+                    <button
+                        class="px-3 py-1 border border-gray-300 rounded text-sm {currentPage ===
+                        pageNum
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'hover:bg-gray-100'}"
+                        on:click={() => goToPage(pageNum)}
+                    >
+                        {pageNum}
+                    </button>
+                {/each}
+
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                >
+                    다음
+                </button>
+                <button
+                    class="px-2 py-1 border border-gray-300 rounded text-sm hover:bg-gray-100 disabled:opacity-50"
+                    on:click={() => goToPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                >
+                    마지막
+                </button>
+
+                <span class="ml-4 text-sm text-gray-600">
+                    Page {currentPage} of {totalPages} (Total {businessItems.length}
+                    items)
+                </span>
+            </div>
+        {/if}
     </div>
 </div>
 
